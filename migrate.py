@@ -34,7 +34,8 @@ STAGE_MAP = {
     "student confirmed": "student_confirmed", "visa process": "visa_process", "visa approved": "visa_approved",
     "flight booked": "flight_booked", "student departed": "student_departed", "enrolled": "enrolled",
     "alumni": "alumni", "dropped out": "dropped_out", "refund requested": "refund_requested",
-    "refund processed": "refund_processed",
+    "refund processed": "refund_processed", "documents requested": "application_started",
+    "application form": "application_started",
 }
 ALIASES = {  # new field: possible old column names
     "name": ["name", "full_name", "student_name"], "phone": ["phone", "mobile", "phone_number"],
@@ -61,7 +62,7 @@ def get(row, field):
     for k in ALIASES.get(field, [field]):
         for rk in (k, k.title(), k.upper(), k.replace("_", " ").title()):
             v = row.get(rk)
-            if v not in (None, "", "None", "null"):
+            if v not in (None, "", "None", "null", "—"):
                 return v
     return None
 
@@ -69,7 +70,7 @@ def get(row, field):
 def parse_dt(v):
     if isinstance(v, (datetime, date)):
         return v if isinstance(v, datetime) else datetime.combine(v, datetime.min.time())
-    for fmt in ("%Y-%m-%d %H:%M:%S.%f", "%Y-%m-%d %H:%M:%S", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d", "%d/%m/%Y", "%d-%m-%Y", "%d %b %Y"):
+    for fmt in ("%Y-%m-%d %H:%M:%S.%f", "%Y-%m-%d %H:%M:%S", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d", "%d/%m/%Y", "%d-%m-%Y", "%d %b %Y", "%d %b %Y, %I:%M %p"):
         try:
             return datetime.strptime(str(v).strip(), fmt)
         except ValueError:
@@ -105,15 +106,26 @@ def import_leads(rows, dry):
             except ValueError:
                 continue
             setattr(lead, f, v)
-        st = (get(r, "stage") or "").strip().lower()
+        st = (get(r, "stage") or "").strip().lower().replace("_", " ")
         if st in ("lost", "closed", "closed lost"):
             lead.status = "lost"
-        elif STAGE_MAP.get(st) or st in STAGE_LABEL:
-            lead.stage = STAGE_MAP.get(st, st)
+        if (r.get("status") or "") in ("lost", "archived"):
+            lead.status = r["status"]
+        if STAGE_MAP.get(st) or st.replace(" ", "_") in STAGE_LABEL:
+            lead.stage = STAGE_MAP.get(st, st.replace(" ", "_"))
+        if lead.gender:
+            lead.gender = lead.gender.capitalize()
+        if r.get("followup_note") and not lead.next_followup_note:
+            lead.next_followup_note = r["followup_note"][:250]
         a = str(get(r, "assigned_to") or "").strip().lower()
         u = users.get(a) or users_by_name.get(a) or (db.session.get(User, int(a)) if a.isdigit() else None)
         if u and not lead.assigned_to_id:
             lead.assigned_to_id = u.id
+        elif a and not u and is_new:
+            db.session.flush()
+            db.session.add(Activity(lead_id=lead.id, kind="system", text=f"Owner in old CRM: {get(r, 'assigned_to')}"))
+        if not lead.whatsapp:
+            lead.whatsapp = lead.phone
         lead.compute_score()
         if is_new:
             db.session.add(lead)
