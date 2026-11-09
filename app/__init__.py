@@ -19,6 +19,8 @@ def create_app(config=None):
         SECRET_KEY=os.environ.get("SECRET_KEY", "change-me-in-production"),
         SQLALCHEMY_DATABASE_URI=db_url,
         SQLALCHEMY_TRACK_MODIFICATIONS=False,
+        # test each pooled connection before use and refresh it every 4 min — free Postgres drops idle SSL connections
+        SQLALCHEMY_ENGINE_OPTIONS={"pool_pre_ping": True, "pool_recycle": 240},
         UPLOAD_FOLDER=os.environ.get("UPLOAD_FOLDER", os.path.join(app.instance_path, "uploads")),
         MAX_CONTENT_LENGTH=15 * 1024 * 1024,
         SESSION_COOKIE_HTTPONLY=True,
