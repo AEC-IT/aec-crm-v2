@@ -159,7 +159,7 @@ def import_universities(rows, dry):
         except ValueError:
             fee = None
         db.session.add(University(name=name.strip(), country=r.get("country"), courses=r.get("courses"),
-                                  fee_usd_per_year=fee, recognition=r.get("recognition")))
+                                  fee_usd_per_year=fee, recognition=r.get("recognition"), notes=r.get("notes") or None))
         n += 1
     print(f"Universities: {n} added (duplicates skipped)")
     (db.session.rollback if dry else db.session.commit)()
