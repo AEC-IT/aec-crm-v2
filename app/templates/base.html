@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}AEC CRM{% endblock %} · AEC Studies</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#f5f6f8;--card:#fff;--ink:#16202e;--muted:#667085;--line:#e4e7ec;--brand:#0b5cad;--brand-2:#e8f1fb;
+--ok:#12805c;--ok-bg:#e7f6ef;--warn:#b54708;--warn-bg:#fef3e6;--bad:#c4321b;--bad-bg:#fdecea;--hot:#d92d20;--cold:#4b70b8;}
+*{box-sizing:border-box}body{margin:0;font:14px/1.5 Inter,system-ui,sans-serif;background:var(--bg);color:var(--ink)}
+a{color:var(--brand);text-decoration:none}a:hover{text-decoration:underline}
+.layout{display:flex;min-height:100vh}
+.side{width:232px;background:#0f1b2d;color:#cfd8e3;flex-shrink:0;position:sticky;top:0;height:100vh;overflow-y:auto;padding:14px 10px}
+.side .logo{display:block;color:#fff;font-weight:700;font-size:17px;padding:6px 10px 16px}.side .logo small{display:block;font-weight:400;color:#8a9bb0;font-size:11px}
+.side h6{margin:14px 10px 4px;font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;color:#7b8ca3}
+.side a{display:flex;justify-content:space-between;color:#cfd8e3;padding:6px 10px;border-radius:6px;font-size:13.5px}
+.side a:hover,.side a.on{background:#1d2c44;color:#fff;text-decoration:none}
+.pill{background:#d92d20;color:#fff;border-radius:10px;padding:0 7px;font-size:11px;line-height:18px}
+.main{flex:1;min-width:0}
+.top{display:flex;gap:10px;align-items:center;background:var(--card);border-bottom:1px solid var(--line);padding:10px 22px;position:sticky;top:0;z-index:5}
+.top form{flex:1;max-width:460px}.top input{width:100%}
+.top .me{margin-left:auto;color:var(--muted);font-size:13px}
+.burger{display:none;background:none;border:0;font-size:22px}
+.wrap{padding:22px;max-width:1400px}
+h1{font-size:22px;margin:0 0 4px}h2{font-size:16px;margin:0 0 12px}.sub{color:var(--muted);margin:0 0 18px}
+.row{display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start}.row>*{flex:1;min-width:260px}
+.head{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap;margin-bottom:16px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:16px;margin-bottom:16px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-bottom:16px}
+.kpi{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px}.kpi b{display:block;font-size:24px}.kpi span{color:var(--muted);font-size:12.5px}
+table{width:100%;border-collapse:collapse;font-size:13.5px}th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:11.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);font-weight:600;background:#fafbfc}
+tr:hover td{background:#fafcff}.tbl{overflow-x:auto;background:var(--card);border:1px solid var(--line);border-radius:10px}
+input,select,textarea{font:inherit;padding:7px 10px;border:1px solid #cfd4dc;border-radius:7px;background:#fff;color:var(--ink);max-width:100%}
+textarea{width:100%;min-height:70px}input:focus,select:focus,textarea:focus{outline:2px solid var(--brand-2);border-color:var(--brand)}
+label{display:block;font-size:12.5px;font-weight:500;color:#344054;margin-bottom:3px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px 16px}.grid input,.grid select{width:100%}
+.btn{display:inline-block;background:var(--brand);color:#fff;border:0;border-radius:7px;padding:8px 14px;font:inherit;font-weight:500;cursor:pointer}
+.btn:hover{filter:brightness(1.08);text-decoration:none}.btn.ghost{background:#fff;color:var(--ink);border:1px solid #cfd4dc}
+.btn.sm{padding:4px 10px;font-size:12.5px}.btn.red{background:var(--bad)}.btn.green{background:var(--ok)}
+.tag{display:inline-block;padding:1px 8px;border-radius:10px;font-size:12px;background:#eef1f5;color:#344054;white-space:nowrap}
+.tag.hot{background:var(--bad-bg);color:var(--hot)}.tag.warm{background:var(--warn-bg);color:var(--warn)}.tag.cold{background:#eaf0fb;color:var(--cold)}
+.tag.ok,.tag.paid,.tag.verified{background:var(--ok-bg);color:var(--ok)}.tag.pending,.tag.uploaded,.tag.partial{background:var(--warn-bg);color:var(--warn)}
+.tag.bad,.tag.rejected,.tag.lost{background:var(--bad-bg);color:var(--bad)}
+.flash{padding:10px 14px;border-radius:8px;margin-bottom:14px}.flash.ok{background:var(--ok-bg);color:var(--ok)}.flash.error{background:var(--bad-bg);color:var(--bad)}
+.muted{color:var(--muted)}.small{font-size:12.5px}.right{text-align:right}
+.filters{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.bar{height:8px;background:#eef1f5;border-radius:5px;overflow:hidden}.bar i{display:block;height:100%;background:var(--brand)}
+.stagebar{display:flex;gap:3px;overflow-x:auto;padding-bottom:4px}.stagebar button{flex:1;min-width:92px;border:0;padding:6px 4px;font:inherit;font-size:11.5px;background:#eef1f5;color:#475467;cursor:pointer;border-radius:4px}
+.stagebar button.done{background:#cfe0f5;color:#0b4a8a}.stagebar button.cur{background:var(--brand);color:#fff;font-weight:600}
+.tl{list-style:none;padding:0;margin:0}.tl li{border-left:2px solid var(--line);padding:0 0 12px 14px;position:relative}
+.tl li:before{content:"";position:absolute;left:-6px;top:4px;width:10px;height:10px;border-radius:50%;background:#cfd4dc}
+.tl li.call:before{background:var(--ok)}.tl li.whatsapp:before{background:#25d366}.tl li.stage:before{background:var(--brand)}.tl li.note:before{background:var(--warn)}
+.kanban{display:flex;gap:12px;overflow-x:auto;align-items:flex-start}.kcol{min-width:250px;flex:1;background:#eceff3;border-radius:10px;padding:8px}
+.kcol h3{font-size:13px;margin:4px 6px 8px;display:flex;justify-content:space-between}
+.kcard{background:#fff;border-radius:8px;padding:9px;margin-bottom:7px;border:1px solid var(--line);cursor:grab}.kcol.over{outline:2px dashed var(--brand)}
+dl.kv{display:grid;grid-template-columns:140px 1fr;gap:4px 10px;margin:0}dl.kv dt{color:var(--muted)}dl.kv dd{margin:0}
+@media (max-width:860px){.side{position:fixed;left:-240px;z-index:20;transition:.2s}.side.open{left:0}.burger{display:block}.wrap{padding:14px}dl.kv{grid-template-columns:110px 1fr}}
+@media print{.side,.top,.noprint{display:none!important}.wrap{padding:0}}
+</style>
+{% block head %}{% endblock %}
+</head>
+<body>
+{% if current_user.is_authenticated %}
+<div class="layout">
+<nav class="side" id="side">
+  <a class="logo" href="{{ url_for('leads.dashboard') }}">AEC CRM<small>AEC Studies Pvt. Ltd.</small></a>
+  {% set p = request.path %}
+  <a href="{{ url_for('leads.dashboard') }}" class="{{ 'on' if p in ['/','/leads/dashboard'] }}">Dashboard</a>
+  {% if current_user.can('leads') %}
+  <h6>Leads</h6>
+  <a href="{{ url_for('leads.call_list') }}" class="{{ 'on' if 'call-list' in p }}">Today's Call List</a>
+  <a href="{{ url_for('leads.index') }}" class="{{ 'on' if p=='/leads/' }}">All Leads</a>
+  <a href="{{ url_for('leads.kanban') }}" class="{{ 'on' if 'kanban' in p }}">Kanban Board</a>
+  <a href="{{ url_for('leads.closed') }}">Closed &amp; Lost</a>
+  {% endif %}
+  {% if current_user.can('documents') %}<a href="{{ url_for('modules.documents') }}" class="{{ 'on' if p.startswith('/documents') }}">Documents</a>{% endif %}
+  {% if current_user.can('universities') %}<a href="{{ url_for('modules.crud_list', name='universities') }}" class="{{ 'on' if 'universities' in p }}">Universities</a>{% endif %}
+  {% if current_user.can('leads') %}
+  <h6>Communication</h6>
+  <a href="{{ url_for('comms.inbox') }}">WhatsApp Inbox {% if unread_whatsapp %}<span class="pill">{{ unread_whatsapp }}</span>{% endif %}</a>
+  <a href="{{ url_for('modules.brochures') }}">Brochures</a>
+  <a href="{{ url_for('modules.crud_list', name='appointments') }}">Appointments</a>
+  {% endif %}
+  {% if current_user.can('finance') %}
+  <h6>Finance</h6>
+  <a href="{{ url_for('finance.dashboard') }}">Payments Dashboard</a>
+  <a href="{{ url_for('finance.payments') }}">Payment Records</a>
+  <a href="{{ url_for('finance.charges') }}">Service Charges</a>
+  {% endif %}
+  {% if current_user.can('reports') %}
+  <h6>Reports</h6>
+  <a href="{{ url_for('reports.overview') }}">Overview</a>
+  <a href="{{ url_for('reports.funnel') }}">Conversion Funnel</a>
+  <a href="{{ url_for('reports.pipeline_health') }}">Pipeline Health</a>
+  <a href="{{ url_for('reports.counselors') }}">Counsellor Performance</a>
+  <a href="{{ url_for('reports.sources') }}">Lead Source &amp; Campaigns</a>
+  <a href="{{ url_for('reports.monthly') }}">Monthly Trends</a>
+  <a href="{{ url_for('reports.followups') }}">Follow-up Report</a>
+  <a href="{{ url_for('reports.projection') }}">Enrollment Projection</a>
+  {% endif %}
+  {% if current_user.can('frontdesk') %}
+  <h6>Front Desk</h6>
+  <a href="{{ url_for('modules.frontdesk') }}">Overview</a>
+  <a href="{{ url_for('modules.crud_list', name='visitors') }}">Visitors</a>
+  <a href="{{ url_for('modules.crud_list', name='couriers') }}">Couriers</a>
+  <a href="{{ url_for('modules.crud_list', name='bills') }}">Bills &amp; Utilities</a>
+  <a href="{{ url_for('modules.crud_list', name='inventory') }}">Inventory</a>
+  {% endif %}
+  {% if current_user.can('office') %}
+  <h6>Office</h6>
+  <a href="{{ url_for('modules.office') }}">Office Overview</a>
+  <a href="{{ url_for('modules.crud_list', name='tasks') }}">Requests &amp; Tasks</a>
+  <a href="{{ url_for('modules.crud_list', name='expenses') }}">Expenses</a>
+  <a href="{{ url_for('modules.crud_list', name='records') }}">Office Records</a>
+  {% endif %}
+  {% if current_user.can('admin') %}
+  <h6>Admin</h6>
+  <a href="{{ url_for('modules.admin') }}">Admin Dashboard</a>
+  <a href="{{ url_for('auth.users') }}">Users</a>
+  <a href="{{ url_for('modules.crud_list', name='branches') }}">Branches</a>
+  <a href="{{ url_for('modules.crud_list', name='rules') }}">Automation Rules</a>
+  <a href="{{ url_for('modules.integrations') }}">API Integrations</a>
+  <a href="{{ url_for('modules.crud_list', name='templates') }}">WhatsApp Templates</a>
+  <a href="{{ url_for('leads.archived') }}">Archived Leads</a>
+  {% endif %}
+</nav>
+<div class="main">
+  <div class="top">
+    <button class="burger" onclick="document.getElementById('side').classList.toggle('open')">☰</button>
+    <form action="{{ url_for('leads.index') }}"><input name="q" placeholder="Search leads by name, phone, email…" value="{{ request.args.q or '' }}"></form>
+    {% if current_user.can('leads') %}<a class="btn sm" href="{{ url_for('leads.form') }}">+ New Lead</a>{% endif %}
+    <a href="{{ url_for('modules.notifications') }}" title="Notifications">🔔{% if unread_notifications %}<span class="pill">{{ unread_notifications }}</span>{% endif %}</a>
+    <span class="me">{{ current_user.name }} · {{ current_user.role_label }} · <a href="{{ url_for('auth.password') }}">Password</a> · <a href="{{ url_for('auth.two_factor_setup') }}">2-step{{ ' ✓' if current_user.totp_secret }}</a> · <a href="{{ url_for('auth.logout') }}">Logout</a></span>
+  </div>
+  <div class="wrap">
+    {% for cat, msg in get_flashed_messages(with_categories=true) %}<div class="flash {{ cat }}">{{ msg }}</div>{% endfor %}
+    {% block content %}{% endblock %}
+  </div>
+</div>
+</div>
+{% else %}
+  {% for cat, msg in get_flashed_messages(with_categories=true) %}<div class="flash {{ cat }}">{{ msg }}</div>{% endfor %}
+  {% block public %}{% endblock %}
+{% endif %}
+{% block scripts %}{% endblock %}
+</body>
+</html>

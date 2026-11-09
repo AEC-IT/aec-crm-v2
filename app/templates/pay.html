@@ -1,0 +1,18 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pay AEC Studies</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>body{margin:0;font:15px/1.5 system-ui,sans-serif;background:#f5f6f8;color:#16202e}.w{max-width:520px;margin:auto;padding:16px}
+.c{background:#fff;border:1px solid #e4e7ec;border-radius:12px;padding:16px;margin-bottom:14px}h1{font-size:20px;margin:0}
+.b{display:block;text-align:center;background:#12805c;color:#fff;border-radius:9px;padding:12px;font-weight:600;text-decoration:none;margin-top:10px}
+.qr{display:flex;justify-content:center;margin-top:12px}.m{color:#667085;font-size:13px}</style></head><body><div class="w">
+<div class="c" style="background:#0f1b2d;color:#fff"><div style="opacity:.7;font-size:13px">AEC Studies Pvt. Ltd.</div><h1>Hello {{ lead.name }}</h1>
+<div>Total pending: <b>₹{{ '{:,.0f}'.format(total) }}</b></div></div>
+{% for c, due, link in rows %}<div class="c"><b>{{ c.fee_type }}</b>{% if c.description %} — {{ c.description }}{% endif %}
+<div style="font-size:24px;font-weight:700">₹{{ '{:,.2f}'.format(due) }}</div>{% if c.due_date %}<div class="m">Due by {{ c.due_date.strftime('%d %b %Y') }}</div>{% endif %}
+{% if link %}<a class="b" href="{{ link }}">Pay with GPay / PhonePe / Paytm</a>
+<div class="qr" id="qr{{ c.id }}"></div><p class="m" style="text-align:center">On a computer? Scan this QR with any UPI app.</p>
+<script>new QRCode(document.getElementById('qr{{ c.id }}'),{text:{{ link|tojson }},width:180,height:180});</script>
+{% else %}<p class="m">Online payment is not set up yet — please contact your counsellor.</p>{% endif %}</div>
+{% else %}<div class="c">✅ Nothing pending. Thank you!</div>{% endfor %}
+<p class="m" style="text-align:center">After paying, send the screenshot / UTR number to your counsellor{% if lead.assigned_to %} ({{ lead.assigned_to.name }}){% endif %} so we can issue your receipt.</p>
+</div></body></html>

@@ -1,0 +1,4 @@
+<form class="filters noprint">{% for k,l in [('today','Today'),('yesterday','Yesterday'),('7d','Last 7 days'),('30d','Last 30 days'),('month','This month'),('year','This year'),('','All time')] %}
+<a class="btn sm {{ '' if request.args.get('p','')==k and not request.args.get('from') else 'ghost' }}" href="?p={{ k }}">{{ l }}</a>{% endfor %}
+<input type="date" name="from" value="{{ request.args.get('from','') }}"><input type="date" name="to" value="{{ request.args.get('to','') }}"><button class="btn sm ghost">Apply</button>
+<button type="button" class="btn sm ghost" onclick="print()">🖨 Print / PDF</button></form>

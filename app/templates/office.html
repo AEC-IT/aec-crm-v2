@@ -1,0 +1,13 @@
+{% extends "base.html" %}{% block title %}Office{% endblock %}
+{% block content %}
+<h1>Office administration</h1><p class="sub">{{ now|dt('%A, %d %B %Y') }}</p>
+<div class="kpis"><div class="kpi"><span>Appointments today</span><b>{{ appts|length }}</b></div>
+<div class="kpi"><span>Open requests</span><b>{{ open_tasks|length }}</b></div><div class="kpi"><span>Expenses this month</span><b>{{ month_exp|inr }}</b></div>
+<div class="kpi"><span>Renewals due (30 days)</span><b>{{ due_records|length }}</b></div></div>
+<div class="filters">{% for n,l in [('appointments','📅 Appointments'),('tasks','🛒 Purchase / travel / onboarding'),('expenses','🧾 Expenses'),('records','🗂 Records vault')] %}<a class="btn ghost" href="{{ url_for('modules.crud_list', name=n) }}">{{ l }}</a>{% endfor %}
+<a class="btn" href="{{ url_for('modules.crud_form', name='tasks', kind='message') }}">✉ Route a message</a></div>
+<div class="row"><div class="card"><h2>Open requests &amp; tasks</h2>{% for t in open_tasks %}<div style="padding:6px 0;border-bottom:1px solid var(--line)"><span class="tag">{{ t.kind }}</span> <a href="{{ url_for('modules.crud_form', name='tasks', oid=t.id) }}">{{ t.title }}</a> <span class="small muted">{{ t.assigned_to.name if t.assigned_to else '' }} · due {{ t.due_date|dt }}</span></div>
+{% else %}<p class="muted">Nothing open.</p>{% endfor %}</div>
+<div class="card"><h2>⏰ Due in the next 30 days</h2>{% for r in due_records %}<div style="padding:6px 0;border-bottom:1px solid var(--line)"><a href="{{ url_for('modules.crud_form', name='records', oid=r.id) }}">{{ r.title }}</a> <span class="small muted">{{ r.category }} · {{ r.reference or '' }}</span> <span style="float:right;{{ 'color:var(--bad)' if r.next_due < now.date() }}">{{ r.next_due|dt }}</span></div>
+{% else %}<p class="muted">No renewals due.</p>{% endfor %}</div></div>
+{% endblock %}

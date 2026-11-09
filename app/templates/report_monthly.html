@@ -1,0 +1,7 @@
+{% extends "base.html" %}{% block title %}Monthly Trends{% endblock %}
+{% block content %}
+<h1>Monthly trends</h1>{% set mx = (months|map(attribute='1')|map(attribute=0)|max) if months else 1 %}
+<div class="card"><table><tr><th>Month</th><th>New leads</th><th class="right">#</th><th class="right">Converted</th><th class="right">Revenue</th></tr>
+{% for m,v in months|reverse %}<tr><td>{{ m }}</td><td style="width:45%"><div class="bar"><i style="width:{{ (v[0]/mx*100)|round if mx else 0 }}%"></i></div></td><td class="right">{{ v[0] }}</td><td class="right">{{ v[1] }}</td><td class="right">{{ v[2]|inr }}</td></tr>
+{% else %}<tr><td colspan="5" class="muted">No data.</td></tr>{% endfor %}</table></div>
+{% endblock %}

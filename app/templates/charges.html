@@ -1,0 +1,8 @@
+{% extends "base.html" %}{% block title %}Service Charges{% endblock %}
+{% block content %}
+<h1>Service charges</h1><div class="filters">{% for s in ['','pending','partial','paid'] %}<a class="btn sm {{ '' if (status or '')==s else 'ghost' }}" href="?status={{ s }}">{{ s or 'All' }}</a>{% endfor %}</div>
+<div class="tbl"><table><tr><th>Date</th><th>Student</th><th>Fee type</th><th>Description</th><th class="right">Amount</th><th class="right">Paid</th><th>Due date</th><th>Status</th></tr>
+{% for c in rows %}<tr><td>{{ c.created_at|dt }}</td><td><a href="{{ url_for('finance.lead_charges', lid=c.lead_id) }}">{{ c.lead.name }}</a></td><td>{{ c.fee_type }}</td><td>{{ c.description or '' }}</td>
+<td class="right">{{ c.amount|inr }}</td><td class="right">{{ c.paid|inr }}</td><td>{{ c.due_date|dt }}</td><td><span class="tag {{ c.status }}">{{ c.status }}</span></td></tr>
+{% else %}<tr><td colspan="8" class="muted">No charges.</td></tr>{% endfor %}</table></div>
+{% endblock %}

@@ -1,0 +1,10 @@
+{% extends "base.html" %}{% block title %}Documents{% endblock %}
+{% block content %}
+<h1>Document centre</h1><p class="sub">Track required documents, verify uploads, and share student upload links.</p>
+<form class="filters"><input name="q" placeholder="Search student" value="{{ request.args.q or '' }}"><button class="btn ghost">Search</button></form>
+<div class="tbl"><table><tr><th>Student</th><th>Phone</th><th>Stage</th><th>Progress</th><th></th></tr>
+{% for l in leads %}{% set up, ver = stats[l.id] %}<tr><td><b>{{ l.name }}</b> <span class="small muted">{{ l.course or '' }} {{ l.country_preference or '' }}</span></td><td>{{ l.phone }}</td><td><span class="tag">{{ l.stage_label }}</span></td>
+<td style="min-width:200px"><div class="bar"><i style="width:{{ (up/total*100)|round }}%"></i></div><span class="small muted">{{ up }}/{{ total }} received · {{ ver }} verified</span></td>
+<td><a class="btn sm ghost" href="{{ url_for('modules.lead_documents', lid=l.id) }}">View docs →</a></td></tr>
+{% else %}<tr><td colspan="5" class="muted">No students past the contact stage yet.</td></tr>{% endfor %}</table></div>
+{% endblock %}

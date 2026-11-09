@@ -1,0 +1,10 @@
+{% extends "base.html" %}{% block title %}Admin{% endblock %}
+{% block content %}
+<h1>Admin dashboard</h1><p class="sub">Users, branches, automation and integrations.</p>
+<div class="kpis"><a class="kpi" href="{{ url_for('auth.users') }}"><span>Users</span><b>{{ users }}</b></a>
+<a class="kpi" href="{{ url_for('modules.crud_list', name='branches') }}"><span>Branches</span><b>{{ branches }}</b></a>
+<a class="kpi" href="{{ url_for('modules.crud_list', name='rules') }}"><span>Automation rules</span><b>{{ rules }}</b></a>
+<a class="kpi" href="{{ url_for('leads.index', assigned_to_id='none') }}"><span>Unassigned open leads</span><b>{{ unassigned }}</b></a></div>
+<div class="card"><h2>Integrations</h2>{% for i in integrations %}<div>{{ i.name }} · {{ i.leads_received }} leads · {{ 'active' if i.active else 'revoked' }}</div>{% else %}<p class="muted">None yet.</p>{% endfor %}
+<p><a href="{{ url_for('modules.integrations') }}">Manage →</a></p></div>
+{% endblock %}

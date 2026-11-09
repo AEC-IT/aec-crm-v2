@@ -1,0 +1,20 @@
+{% extends "base.html" %}{% block title %}API Integrations{% endblock %}
+{% block content %}
+<h1>API integrations</h1><p class="sub">Keys for landing pages, AI chat bots, Tally forms and Meta Lead Ads (via Zapier / Make) to send leads in.</p>
+<form method="post" class="card filters"><input name="name" placeholder="Integration name" required><select name="kind">{% for k in ['Website','Meta Lead Ad','Tally Form','AI Chat','WhatsApp','Google Ads','API'] %}<option>{{ k }}</option>{% endfor %}</select>
+<select name="branch_id"><option value="">Any branch</option>{% for b in branches %}<option value="{{ b.id }}">{{ b.name }}</option>{% endfor %}</select><button class="btn">+ New integration</button></form>
+<div class="tbl"><table><tr><th>Name</th><th>Source label</th><th>API key</th><th>Status</th><th>Leads</th><th>Last used</th><th></th></tr>
+{% for i in items %}<tr><td>{{ i.name }}</td><td>{{ i.kind }}</td><td><code style="font-size:12px">{{ i.api_key }}</code></td><td><span class="tag {{ 'ok' if i.active else 'bad' }}">{{ 'Active' if i.active else 'Revoked' }}</span></td>
+<td>{{ i.leads_received }}</td><td class="small">{{ i.last_used|dt('%d %b %Y %H:%M') }}</td>
+<td><form method="post" style="white-space:nowrap"><button class="btn sm ghost" name="revoke" value="{{ i.id }}">{{ 'Revoke' if i.active else 'Enable' }}</button><button class="btn sm ghost" name="regen" value="{{ i.id }}" onclick="return confirm('Old key stops working. Continue?')">New key</button><button class="btn sm red" name="delete" value="{{ i.id }}" onclick="return confirm('Delete?')">✕</button></form></td></tr>
+{% else %}<tr><td colspan="7" class="muted">No integrations yet.</td></tr>{% endfor %}</table></div>
+<div class="card" style="margin-top:16px"><h2>How to send a lead</h2>
+<pre style="white-space:pre-wrap;font-size:12.5px;background:#f5f6f8;padding:12px;border-radius:8px">POST {{ url_for('api.create_lead', _external=True) }}
+Header: X-API-Key: &lt;key&gt;
+JSON: {"name": "Anu", "phone": "9876543210", "email": "...", "course": "MBBS",
+       "country": "Georgia", "neet_score": 410, "campaign": "Nov MBBS Leads", "ad_name": "Parent video"}
+
+Tally: add a webhook to the same URL with ?key=&lt;key&gt; — field labels Name / Phone number / Email are read automatically.
+WhatsApp (Meta Cloud API) webhook: {{ url_for('comms.webhook', _external=True) }}
+Duplicates are never created: a repeat enquiry is added to the existing lead's timeline.</pre></div>
+{% endblock %}

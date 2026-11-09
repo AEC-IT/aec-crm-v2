@@ -1,0 +1,12 @@
+{% extends "base.html" %}{% block title %}Login{% endblock %}
+{% block public %}
+<div style="min-height:100vh;display:grid;place-items:center;background:linear-gradient(135deg,#0f1b2d,#0b5cad)">
+<form method="post" class="card" style="width:360px;padding:28px">
+  <h1>AEC Studies CRM</h1><p class="sub">Internal management portal</p>
+  <label>Email address</label><input name="email" type="email" required style="width:100%;margin-bottom:12px" autofocus>
+  <label>Password</label><input name="password" type="password" required style="width:100%;margin-bottom:12px">
+  <label style="display:flex;gap:6px;align-items:center"><input type="checkbox" name="remember"> Keep me signed in</label>
+  <button class="btn" style="width:100%;margin-top:14px">Sign in</button>
+  <p class="muted small" style="margin-top:16px">AEC Studies Pvt. Ltd. — Internal use only</p>
+</form></div>
+{% endblock %}

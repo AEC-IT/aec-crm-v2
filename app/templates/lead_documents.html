@@ -1,0 +1,16 @@
+{% extends "base.html" %}{% block title %}Documents · {{ lead.name }}{% endblock %}
+{% block content %}
+<div class="head"><div><h1>Documents — <a href="{{ url_for('leads.detail', lid=lead.id) }}">{{ lead.name }}</a></h1>
+<p class="sub" style="margin:0">Student upload link: <input readonly size="50" value="{{ url_for('leads.portal', token=lead.portal_token, _external=True) if lead.portal_token else 'n/a' }}" onclick="this.select()"></p></div></div>
+<div class="tbl"><table><tr><th>Document</th><th>Status</th><th>File</th><th>Note / expiry</th><th>Update</th></tr>
+{% for name in checklist + extra|map(attribute='name')|list %}{% set d = docs.get(name) %}
+<tr><td>{{ name }}{% if d and d.uploaded_by_portal %} <span class="small muted">(by student)</span>{% endif %}</td>
+<td><span class="tag {{ d.status if d else '' }}">{{ d.status if d else 'missing' }}</span></td>
+<td>{% if d and d.filename %}<a href="{{ url_for('modules.file', fn=d.filename) }}" target="_blank">Open</a>{% else %}—{% endif %}</td>
+<td class="small">{{ d.note if d and d.note else '' }}{% if d and d.expiry %} · exp {{ d.expiry|dt }}{% endif %}</td>
+<td><form method="post" enctype="multipart/form-data" class="filters" style="margin:0"><input type="hidden" name="doc_name" value="{{ name }}">
+<input type="file" name="file" style="width:170px"><select name="status"><option value="">status…</option>{% for s in ['uploaded','verified','rejected','pending'] %}<option>{{ s }}</option>{% endfor %}</select>
+<input name="note" placeholder="note" value="{{ d.note if d and d.note else '' }}" style="width:110px"><input type="date" name="expiry" title="Expiry"><button class="btn sm">Save</button></form></td></tr>
+{% endfor %}</table></div>
+<form method="post" enctype="multipart/form-data" class="card filters" style="margin-top:16px"><b>Other document:</b><input name="doc_name" placeholder="Document name" required><input type="file" name="file" required><button class="btn sm">Upload</button></form>
+{% endblock %}

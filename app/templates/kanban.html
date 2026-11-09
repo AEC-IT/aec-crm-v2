@@ -1,0 +1,20 @@
+{% extends "base.html" %}{% block title %}Kanban{% endblock %}
+{% block content %}
+<div class="head"><div><h1>Kanban board</h1><p class="sub" style="margin:0">Drag a card to move the lead to another stage.</p></div>
+<div class="filters" style="margin:0">{% for p,_ in phases %}<a class="btn sm {{ '' if p==phase else 'ghost' }}" href="?phase={{ p }}">{{ p }}</a>{% endfor %}</div></div>
+<div class="kanban">
+{% for code,label in stages %}<div class="kcol" data-stage="{{ code }}"><h3>{{ label }} <span class="muted">{{ cols[code]|length }}</span></h3>
+ {% for l in cols[code] %}<div class="kcard" draggable="true" data-id="{{ l.id }}"><a href="{{ url_for('leads.detail', lid=l.id) }}"><b>{{ l.name }}</b></a>
+  <div class="small muted">{{ l.course or '' }} {{ l.country_preference or '' }}</div>
+  <div class="small"><span class="tag {{ l.temperature }}">{{ l.score }}</span> {{ l.assigned_to.name if l.assigned_to else 'Unassigned' }}
+  {% if l.followup_overdue %}<span style="color:var(--bad)">· overdue</span>{% endif %}</div></div>{% endfor %}
+</div>{% endfor %}</div>
+{% endblock %}
+{% block scripts %}<script>
+let dragId=null;document.querySelectorAll('.kcard').forEach(c=>c.addEventListener('dragstart',()=>dragId=c.dataset.id));
+document.querySelectorAll('.kcol').forEach(col=>{col.addEventListener('dragover',e=>{e.preventDefault();col.classList.add('over')});
+col.addEventListener('dragleave',()=>col.classList.remove('over'));
+col.addEventListener('drop',async e=>{e.preventDefault();col.classList.remove('over');if(!dragId)return;
+const card=document.querySelector(`.kcard[data-id="${dragId}"]`);col.appendChild(card);
+await fetch(`/leads/${dragId}/stage`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({stage:col.dataset.stage})});});});
+</script>{% endblock %}

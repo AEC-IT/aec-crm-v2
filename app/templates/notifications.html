@@ -1,0 +1,7 @@
+{% extends "base.html" %}{% block title %}Notifications{% endblock %}
+{% block content %}
+<div class="head"><h1>Notifications</h1><form method="post"><button class="btn ghost">Mark all read</button></form></div>
+<div class="card">{% for n in items %}<div style="padding:8px 0;border-bottom:1px solid var(--line);{{ 'font-weight:600' if not n.read }}">
+<a href="{{ n.link or '#' }}">{{ n.text }}</a> <span class="small muted" style="float:right">{{ n.created_at|dt('%d %b %H:%M') }}</span></div>
+{% else %}<p class="muted">No notifications.</p>{% endfor %}</div>
+{% endblock %}

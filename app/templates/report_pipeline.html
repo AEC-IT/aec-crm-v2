@@ -1,0 +1,7 @@
+{% extends "base.html" %}{% block title %}Pipeline Health{% endblock %}
+{% block content %}
+<h1>Pipeline health</h1><p class="sub">{{ stuck|length }} open leads untouched for 14+ days · {{ no_followup }} open leads with no follow-up scheduled</p>
+<div class="tbl"><table><tr><th>Lead</th><th>Stage</th><th>Owner</th><th>Last updated</th><th class="right">Days idle</th></tr>
+{% for l in stuck %}<tr><td><a href="{{ url_for('leads.detail', lid=l.id) }}">{{ l.name }}</a></td><td><span class="tag">{{ l.stage_label }}</span></td><td>{{ l.assigned_to.name if l.assigned_to else '—' }}</td><td>{{ l.updated_at|dt }}</td><td class="right">{{ (now - l.updated_at).days }}</td></tr>
+{% else %}<tr><td colspan="5" class="muted">Pipeline is healthy.</td></tr>{% endfor %}</table></div>
+{% endblock %}

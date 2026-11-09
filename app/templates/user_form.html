@@ -1,0 +1,16 @@
+{% extends "base.html" %}{% block title %}User{% endblock %}
+{% block content %}
+<h1>{{ 'Edit user' if u.id else 'New user' }}</h1>
+<form method="post" class="card"><div class="grid">
+<div><label>Name *</label><input name="name" required value="{{ u.name or '' }}"></div>
+<div><label>Email *</label><input name="email" type="email" required value="{{ u.email or '' }}"></div>
+<div><label>Phone</label><input name="phone" value="{{ u.phone or '' }}"></div>
+<div><label>Role</label><select name="role">{% for c,l in roles %}<option value="{{ c }}" {{ 'selected' if u.role==c }}>{{ l }}</option>{% endfor %}</select></div>
+<div><label>Branch</label><select name="branch_id"><option value="">All</option>{% for b in branches %}<option value="{{ b.id }}" {{ 'selected' if u.branch_id==b.id }}>{{ b.name }}</option>{% endfor %}</select></div>
+<div><label>Languages (comma separated)</label><input name="languages" value="{{ u.languages or 'English,Malayalam' }}"></div>
+<div><label>Max open leads</label><input name="max_open_leads" type="number" value="{{ u.max_open_leads or 150 }}"></div>
+<div><label>{{ 'New password (leave blank to keep)' if u.id else 'Password *' }}</label><input name="password" type="password" minlength="8" {{ '' if u.id else 'required' }}></div>
+<div><label><input type="checkbox" name="accepts_auto_assign" {{ 'checked' if u.accepts_auto_assign or not u.id }}> Receives auto-assigned leads</label>
+<label><input type="checkbox" name="active" {{ 'checked' if u.active or not u.id }}> Active</label></div>
+</div>{% if u.id %}<p class="small">2-step login: {{ '<b>on</b>'|safe if u.totp_secret else 'off' }}{% if u.totp_secret %} <button class="btn sm ghost" formaction="{{ url_for('auth.reset_2fa', uid=u.id) }}" formnovalidate onclick="return confirm('Reset 2-step login for this user?')">Reset (lost phone)</button>{% endif %}</p>{% endif %}<p><button class="btn">Save</button> <a class="btn ghost" href="{{ url_for('auth.users') }}">Cancel</a></p></form>
+{% endblock %}

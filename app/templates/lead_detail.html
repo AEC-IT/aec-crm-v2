@@ -1,0 +1,85 @@
+{% extends "base.html" %}{% block title %}{{ lead.name }}{% endblock %}
+{% block content %}
+<div class="head"><div>
+ <h1>{{ lead.name }} <span class="tag {{ lead.temperature }}">{{ lead.temperature|capitalize }} · {{ lead.score }}</span> {% if lead.status!='open' %}<span class="tag lost">{{ lead.status }}</span>{% endif %}</h1>
+ <p class="sub" style="margin:0"><a href="tel:{{ lead.phone }}">📞 {{ lead.phone }}</a> · <a href="{{ url_for('comms.thread', phone=lead.whatsapp or lead.phone) }}">💬 WhatsApp</a>
+ {% if lead.email %} · <a href="mailto:{{ lead.email }}">✉ {{ lead.email }}</a>{% endif %} · {{ lead.course or 'Course ?' }} · {{ lead.country_preference or 'Country ?' }}</p></div>
+ <div class="noprint">
+  <a class="btn ghost" href="{{ url_for('leads.form', lid=lead.id) }}">Edit</a>
+  {% if current_user.can('documents') %}<a class="btn ghost" href="{{ url_for('modules.lead_documents', lid=lead.id) }}">📂 Documents</a>{% endif %}
+  {% if current_user.can('finance') %}<a class="btn ghost" href="{{ url_for('finance.lead_charges', lid=lead.id) }}">💳 Charges</a>{% endif %}
+ </div></div>
+
+{% if dups %}<div class="card" style="border-color:var(--warn)"><b>⚠ Possible duplicates:</b>
+{% for d in dups %} <a href="{{ url_for('leads.detail', lid=d.id) }}">#{{ d.id }} {{ d.name }} ({{ d.stage_label }})</a>
+<form method="post" action="{{ url_for('leads.merge', lid=lead.id, other_id=d.id) }}" style="display:inline" onsubmit="return confirm('Merge #{{ d.id }} into this lead? Its notes, documents and payments move here and #{{ d.id }} is removed.')"><button class="btn sm ghost">Merge into this</button></form>{% endfor %}</div>{% endif %}
+
+<div class="card noprint"><form method="post" action="{{ url_for('leads.set_stage', lid=lead.id) }}">
+{% set codes = stages|map('first')|list %}{% set cur = codes.index(lead.stage) if lead.stage in codes else 0 %}
+<div class="stagebar">{% for code,label in stages if code not in ['dropped_out','refund_requested','refund_processed'] %}
+ <button name="stage" value="{{ code }}" class="{{ 'cur' if code==lead.stage else ('done' if loop.index0 < cur) }}" title="{{ label }}">{{ label }}</button>{% endfor %}</div>
+<div class="small" style="margin-top:8px">Exceptions:
+ {% for code in ['dropped_out','refund_requested','refund_processed'] %}<button class="btn sm ghost" name="stage" value="{{ code }}">{{ STAGE_LABEL[code] }}</button>{% endfor %}
+ <input name="lost_reason" placeholder="Lost reason (if marking lost)" style="width:220px"> <button class="btn sm red" name="stage" value="lost">Mark lost</button>
+ {% if lead.status!='open' %}<button formaction="{{ url_for('leads.set_status', lid=lead.id, status='open') }}" class="btn sm green">Re-open</button>{% endif %}
+</div></form></div>
+
+<div class="row">
+<div style="flex:2">
+ <div class="card noprint" id="log"><h2>Log activity</h2>
+  <form method="post" action="{{ url_for('leads.add_activity', lid=lead.id) }}">
+   <div class="filters">
+    <select name="kind"><option value="call">📞 Call</option><option value="note">📝 Note</option><option value="whatsapp">💬 WhatsApp</option><option value="meeting">🤝 Meeting</option><option value="email">✉ Email</option></select>
+    <select name="outcome"><option value="">Call outcome…</option>{% for o in ['Connected','No answer','Busy','Switched off','Call back later','Wrong number','Not interested'] %}<option>{{ o }}</option>{% endfor %}</select>
+   </div>
+   <textarea name="text" placeholder="What happened? What did they ask?"></textarea>
+   <div class="filters" style="margin-top:8px;align-items:center"><label style="margin:0">Next follow-up</label>
+    <input type="datetime-local" name="next_followup_at">
+    {% for d,l in [(1,'Tomorrow'),(3,'3 days'),(7,'1 week')] %}<button type="button" class="btn sm ghost" onclick="setFU({{ d }})">{{ l }}</button>{% endfor %}
+    <input name="next_followup_note" placeholder="Follow-up note" style="flex:1">
+    <button class="btn">Save</button></div>
+  </form></div>
+ <div class="card" id="timeline"><h2>Timeline</h2><ul class="tl">
+  {% for a in activities %}<li class="{{ a.kind }}"><div class="small muted">{{ a.created_at|dt('%d %b %Y, %H:%M') }} · {{ a.user.name if a.user else 'System' }} · {{ a.kind }}{% if a.outcome %} · <b>{{ a.outcome }}</b>{% endif %}</div><div style="white-space:pre-wrap">{{ a.text }}</div></li>
+  {% else %}<li class="muted">No activity yet.</li>{% endfor %}</ul></div>
+</div>
+<div>
+<div class="card noprint"><h2>💬 Send WhatsApp template</h2>
+  <form method="post" action="{{ url_for('comms.send_template', lid=lead.id) }}">
+   <select name="template_id" id="tplsel" style="width:100%" required onchange="tplPreview(this.value)"><option value="">Choose a message…</option>
+   {% for t in wa_templates %}<option value="{{ t.id }}">{{ t.category }} — {{ t.title }}</option>{% endfor %}</select>
+   <div id="tplprev" class="small" style="white-space:pre-wrap;background:#f0fdf4;border-radius:8px;padding:8px;margin:8px 0;display:none"></div>
+   <button class="btn sm green">Send on WhatsApp</button> <a class="small" href="{{ url_for('modules.crud_list', name='templates') }}">Manage templates</a></form></div>
+ <div class="card"><h2>Follow-up</h2>
+  {% if lead.next_followup_at %}<p style="{{ 'color:var(--bad)' if lead.followup_overdue }}"><b>{{ lead.next_followup_at|dt('%d %b %Y, %H:%M') }}</b>{% if lead.followup_overdue %} (overdue){% endif %}<br>{{ lead.next_followup_note or '' }}</p>
+  <form method="post" action="{{ url_for('leads.add_activity', lid=lead.id) }}"><input type="hidden" name="clear_followup" value="1"><button class="btn sm ghost">Mark done</button></form>
+  {% else %}<p class="muted">No follow-up scheduled.</p>{% endif %}
+ </div>
+ <div class="card"><h2>Owner</h2><form method="post" action="{{ url_for('leads.assign', lid=lead.id) }}" class="filters">
+  <select name="assigned_to_id"><option value="">— nobody —</option>{% for u in users %}<option value="{{ u.id }}" {{ 'selected' if lead.assigned_to_id==u.id }}>{{ u.name }}</option>{% endfor %}</select>
+  <button class="btn sm">Assign</button><button class="btn sm ghost" name="auto" value="1">Auto</button></form></div>
+ <div class="card"><h2>Details</h2><dl class="kv">
+  {% for k,l in [('stage_label','Stage'),('phase','Phase'),('source','Source'),('campaign','Campaign'),('budget','Budget'),('neet_score','NEET'),('neet_year','NEET year'),('twelfth_percent','12th %'),('pcb_percent','PCB %'),('intended_intake','Intake'),('funding_source','Funding'),('passport_status','Passport'),('decision_maker','Decides'),('parent_name','Parent'),('parent_phone','Parent phone'),('location','Location'),('competitor','Competitor'),('objection','Objection'),('visa_status','Visa'),('flight_date','Flight')] %}
+   {% if lead[k] not in [None,''] %}<dt>{{ l }}</dt><dd>{{ (lead[k]|inr) if k=='budget' else lead[k] }}</dd>{% endif %}{% endfor %}
+  <dt>Created</dt><dd>{{ lead.created_at|dt }}</dd></dl></div>
+ <div class="card"><h2>Universities</h2>
+  {% for ap in lead.applications %}<form method="post" action="{{ url_for('leads.add_application', lid=lead.id) }}" style="border-bottom:1px solid var(--line);padding:6px 0">
+   <input type="hidden" name="app_id" value="{{ ap.id }}"><b>{{ ap.university.name }}</b> <span class="small muted">{{ ap.university.country }} · {{ ap.course or '' }} {{ ap.intake or '' }}</span><br>
+   <select name="status" onchange="this.form.submit()">{% for s in ['Shortlisted','Applied','Offer Received','Accepted','Rejected','Withdrawn'] %}<option {{ 'selected' if ap.status==s }}>{{ s }}</option>{% endfor %}</select>
+   <button class="btn sm ghost" name="delete" value="1">✕</button></form>{% endfor %}
+  <form method="post" action="{{ url_for('leads.add_application', lid=lead.id) }}" style="margin-top:8px"><select name="university_id" style="width:100%"><option value="">Add university…</option>{% for u in universities %}<option value="{{ u.id }}">{{ u.name }} ({{ u.country }})</option>{% endfor %}</select>
+  <div class="filters" style="margin-top:6px"><input name="intake" placeholder="Intake"><button class="btn sm">Add</button></div></form></div>
+ <div class="card"><h2>Share</h2>
+  <p class="small">Student / parent portal (track progress + upload documents):</p>
+  <input readonly style="width:100%" value="{{ url_for('leads.portal', token=lead.portal_token, _external=True) if lead.portal_token else 'n/a' }}" onclick="this.select()">
+  {% if brochures %}<p class="small" style="margin-top:10px">Trackable brochure links:</p>
+  {% for b in brochures %}<div class="small"><a href="{{ url_for('modules.brochure_public', bid=b.id, l=lead.id) }}" target="_blank">{{ b.course }} — {{ b.title }}</a></div>{% endfor %}{% endif %}
+ </div>
+ {% if current_user.can('admin') %}<form method="post" action="{{ url_for('leads.delete', lid=lead.id) }}" onsubmit="return confirm('Permanently delete this lead and all its history?')" class="noprint">
+  <button formaction="{{ url_for('leads.set_status', lid=lead.id, status='archived') }}" class="btn sm ghost">Archive</button> <button class="btn sm red">Delete</button></form>{% endif %}
+</div></div>
+{% endblock %}
+{% block scripts %}<script>async function tplPreview(id){const b=document.getElementById('tplprev');if(!id){b.style.display='none';return}
+b.textContent=await (await fetch('/whatsapp/preview/{{ lead.id }}/'+id)).text();b.style.display='block';}
+function setFU(d){const t=new Date(Date.now()+d*864e5);t.setHours(10,0,0,0);
+const p=n=>String(n).padStart(2,'0');document.querySelector('[name=next_followup_at]').value=`${t.getFullYear()}-${p(t.getMonth()+1)}-${p(t.getDate())}T10:00`;}</script>{% endblock %}

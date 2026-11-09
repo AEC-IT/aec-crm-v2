@@ -1,0 +1,17 @@
+{% extends "base.html" %}{% block title %}{{ s.title }}{% endblock %}
+{% block content %}
+<h1>{{ 'Edit' if obj.id else 'Add' }} — {{ s.title }}</h1>
+<form method="post" class="card"><div class="grid">
+{% for fname, label, ftype, opts in s.fields %}{% set v = obj[fname] %}
+<div {% if ftype=='textarea' %}style="grid-column:1/-1"{% endif %}><label>{{ label }}</label>
+{% if ftype=='textarea' %}<textarea name="{{ fname }}">{{ v or '' }}</textarea>
+{% elif ftype in ['select','fk'] %}<select name="{{ fname }}"><option value="">—</option>{% for val, text in resolve(opts) %}<option value="{{ val }}" {{ 'selected' if v is not none and v|string==val|string }}>{{ text }}</option>{% endfor %}</select>
+{% elif ftype=='bool' %}<input type="checkbox" name="{{ fname }}" {{ 'checked' if v or (v is none and not obj.id) }}>
+{% elif ftype=='date' %}<input type="date" name="{{ fname }}" value="{{ v.isoformat() if v else '' }}">
+{% elif ftype=='datetime' %}<input type="datetime-local" name="{{ fname }}" value="{{ v.strftime('%Y-%m-%dT%H:%M') if v else '' }}">
+{% else %}<input type="{{ 'number' if ftype=='number' else 'text' }}" step="any" name="{{ fname }}" value="{{ v if v is not none else '' }}">{% endif %}
+</div>{% endfor %}</div>
+<div style="margin-top:16px"><button class="btn">Save</button> <a class="btn ghost" href="{{ url_for('modules.crud_list', name=name) }}">Cancel</a>
+{% if obj.id %}<button class="btn red" name="_delete" value="1" style="float:right" onclick="return confirm('Delete this record?')">Delete</button>{% endif %}</div>
+</form>
+{% endblock %}

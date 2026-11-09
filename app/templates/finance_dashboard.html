@@ -1,0 +1,17 @@
+{% extends "base.html" %}{% block title %}Finance{% endblock %}
+{% block content %}
+<h1>Finance dashboard</h1><p class="sub">Service charges and payments · {{ d0|dt }} – {{ d1|dt }}</p>
+{% include "_period.html" %}
+{% if overdue %}<form method="post" action="{{ url_for('finance.remind_overdue') }}" class="noprint" onsubmit="return confirm('Send a WhatsApp payment reminder to every overdue student (skips anyone reminded in the last 3 days)?')"><button class="btn green">💬 Remind all {{ overdue|length }} overdue on WhatsApp</button></form><br>{% endif %}
+<div class="kpis"><div class="kpi"><span>Billed</span><b>{{ billed|inr }}</b><span>charges raised</span></div>
+<div class="kpi"><span>Paid</span><b>{{ paid|inr }}</b><span>against these charges</span></div>
+<div class="kpi"><span>Outstanding</span><b style="color:var(--bad)">{{ (billed-paid)|inr }}</b><span>still to collect</span></div>
+<div class="kpi"><span>Received</span><b style="color:var(--ok)">{{ received|inr }}</b><span>all payments in period</span></div>
+<div class="kpi"><span>Overdue charges</span><b>{{ overdue|length }}</b><span>past due date</span></div></div>
+<div class="row"><div class="card"><h2>By fee type</h2><table><tr><th>Fee type</th><th class="right">#</th><th class="right">Billed</th><th class="right">Paid</th><th class="right">Due</th></tr>
+{% for t,v in by_type.items() %}<tr><td>{{ t }}</td><td class="right">{{ v[0] }}</td><td class="right">{{ v[1]|inr }}</td><td class="right">{{ v[2]|inr }}</td><td class="right">{{ (v[1]-v[2])|inr }}</td></tr>{% else %}<tr><td colspan="5" class="muted">No charges.</td></tr>{% endfor %}</table></div>
+<div class="card"><h2>Students with money due</h2><table><tr><th>Student</th><th class="right">Billed</th><th class="right">Due</th></tr>
+{% for l,v in due[:15] %}<tr><td><a href="{{ url_for('finance.lead_charges', lid=l.id) }}">{{ l.name }}</a></td><td class="right">{{ v[0]|inr }}</td><td class="right" style="color:var(--bad)">{{ v[1]|inr }}</td></tr>{% else %}<tr><td colspan="3" class="muted">Nobody owes anything.</td></tr>{% endfor %}</table></div></div>
+<div class="card"><h2>Latest charges</h2><div class="tbl"><table><tr><th>Date</th><th>Student</th><th>Fee type</th><th>Description</th><th class="right">Amount</th><th class="right">Paid</th><th class="right">Due</th><th>Status</th><th></th></tr>
+{% for c in charges %}<tr><td>{{ c.created_at|dt }}</td><td><a href="{{ url_for('finance.lead_charges', lid=c.lead_id) }}">{{ c.lead.name }}</a></td><td>{{ c.fee_type }}</td><td>{{ c.description or '' }}</td><td class="right">{{ c.amount|inr }}</td><td class="right">{{ c.paid|inr }}</td><td class="right">{{ (c.amount-c.paid)|inr }}</td><td><span class="tag {{ c.status }}">{{ c.status }}</span></td><td>{% if c.status!="paid" %}<form method="post" action="{{ url_for('finance.remind', cid=c.id) }}"><button class="btn sm ghost" title="{{ 'Last reminded ' ~ c.last_reminded_at.strftime('%d %b') if c.last_reminded_at else '' }}">💬 Remind</button></form>{% endif %}</td></tr>{% endfor %}</table></div></div>
+{% endblock %}

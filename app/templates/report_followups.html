@@ -1,0 +1,8 @@
+{% extends "base.html" %}{% block title %}Follow-up Report{% endblock %}
+{% block content %}
+<h1>Follow-up report</h1>
+<div class="kpis">{% for u,n in rows %}<a class="kpi" href="{{ url_for('leads.index', assigned_to_id=u.id, followup='overdue') }}"><span>{{ u.name }}</span><b style="color:var(--bad)">{{ n }}</b><span>overdue</span></a>{% endfor %}</div>
+<div class="tbl"><table><tr><th>Lead</th><th>Owner</th><th>Was due</th><th>Note</th></tr>
+{% for l in overdue %}<tr><td><a href="{{ url_for('leads.detail', lid=l.id) }}">{{ l.name }}</a></td><td>{{ l.assigned_to.name if l.assigned_to else '—' }}</td><td style="color:var(--bad)">{{ l.next_followup_at|dt('%d %b %H:%M') }}</td><td class="small">{{ l.next_followup_note or '' }}</td></tr>
+{% else %}<tr><td colspan="4" class="muted">No overdue follow-ups.</td></tr>{% endfor %}</table></div>
+{% endblock %}

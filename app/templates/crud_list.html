@@ -1,0 +1,18 @@
+{% extends "base.html" %}{% block title %}{{ s.title }}{% endblock %}
+{% block content %}
+<div class="head"><div><h1>{{ s.title }}</h1><p class="sub" style="margin:0">{{ rows|length }} records</p></div>
+<a class="btn" href="{{ url_for('modules.crud_form', name=name) }}">+ Add</a></div>
+<form class="filters">{% if s.search %}<input name="q" placeholder="Search…" value="{{ args.q or '' }}">{% endif %}
+{% if filt_opts %}<select name="{{ s.filter }}" onchange="this.form.submit()"><option value="">All {{ labels[s.filter]|lower }}</option>
+{% for o in filt_opts %}<option {{ 'selected' if args.get(s.filter)==o }}>{{ o }}</option>{% endfor %}</select>{% endif %}
+<button class="btn ghost">Filter</button></form>
+<div class="tbl"><table><tr>{% for c in s.cols %}<th>{{ labels.get(c, c|replace('_',' ')|capitalize) }}</th>{% endfor %}<th></th></tr>
+{% for r in rows %}<tr>{% for c in s.cols %}{% set v = r[c] %}<td>
+ {% if v is sameas true %}✓{% elif v is sameas false %}—{% elif c in ['amount','fee_usd_per_year'] and v %}{{ ('$' ~ '{:,.0f}'.format(v)) if c=='fee_usd_per_year' else v|inr }}
+ {% elif v.__class__.__name__ in ['datetime'] %}{{ v|dt('%d %b %Y %H:%M') }}{% elif v.__class__.__name__=='date' %}<span {% if c in ['due_date','next_due'] and v < now.date() and r.status!='paid' %}style="color:var(--bad)"{% endif %}>{{ v|dt }}</span>
+ {% elif c in ['status','direction','kind'] %}<span class="tag {{ v }}">{{ v }}</span>{% else %}{{ v if v is not none else '—' }}{% endif %}</td>{% endfor %}
+ <td class="right" style="white-space:nowrap">{% if name=='visitors' and not r.out_time %}<form method="post" action="{{ url_for('modules.visitor_out', vid=r.id) }}" style="display:inline"><button class="btn sm green">Check out</button></form>{% endif %}
+ <a class="btn sm ghost" href="{{ url_for('modules.crud_form', name=name, oid=r.id) }}">Edit</a></td></tr>
+{% else %}<tr><td colspan="{{ s.cols|length+1 }}" class="muted">Nothing yet. <a href="{{ url_for('modules.crud_form', name=name) }}">Add the first one</a>.</td></tr>{% endfor %}
+</table></div>
+{% endblock %}

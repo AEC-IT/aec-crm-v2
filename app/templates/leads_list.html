@@ -1,0 +1,42 @@
+{% extends "base.html" %}{% block title %}Leads{% endblock %}
+{% block content %}
+<div class="head"><div><h1>{{ {'open':'All Leads','lost':'Closed & Lost Leads','archived':'Archived Leads'}[status] }}</h1>
+<p class="sub" style="margin:0">{{ page.total }} leads</p></div>
+<div><a class="btn ghost" href="{{ request.full_path }}{{ '&' if '?' in request.full_path else '?' }}export=csv">⬇ Export CSV</a>
+<a class="btn" href="{{ url_for('leads.form') }}">+ New Lead</a></div></div>
+<form class="filters">
+  <input name="q" placeholder="Name / phone / email" value="{{ args.q or '' }}">
+  <select name="stage"><option value="">All stages</option>{% for c,l in stages %}<option value="{{ c }}" {{ 'selected' if args.stage==c }}>{{ l }}</option>{% endfor %}</select>
+  <select name="course"><option value="">All courses</option>{% for c in courses %}<option {{ 'selected' if args.course==c }}>{{ c }}</option>{% endfor %}</select>
+  <select name="country_preference"><option value="">All countries</option>{% for c in countries %}<option {{ 'selected' if args.country_preference==c }}>{{ c }}</option>{% endfor %}</select>
+  <select name="source"><option value="">All sources</option>{% for c in sources %}<option {{ 'selected' if args.source==c }}>{{ c }}</option>{% endfor %}</select>
+  <select name="temperature"><option value="">Any temp.</option>{% for t in ['hot','warm','cold'] %}<option {{ 'selected' if args.temperature==t }}>{{ t }}</option>{% endfor %}</select>
+  {% if current_user.sees_all_leads %}<select name="assigned_to_id"><option value="">Anyone</option><option value="none" {{ 'selected' if args.assigned_to_id=='none' }}>Unassigned</option>{% for u in users %}<option value="{{ u.id }}" {{ 'selected' if args.assigned_to_id==u.id|string }}>{{ u.name }}</option>{% endfor %}</select>{% endif %}
+  <select name="followup"><option value="">Any follow-up</option><option value="overdue" {{ 'selected' if args.followup=='overdue' }}>Overdue</option><option value="today" {{ 'selected' if args.followup=='today' }}>Due today</option></select>
+  <select name="sort">{% for k,v in [('newest','Newest'),('oldest','Oldest'),('score','Score'),('followup','Follow-up'),('name','Name')] %}<option value="{{ k }}" {{ 'selected' if args.sort==k }}>{{ v }}</option>{% endfor %}</select>
+  <button class="btn ghost">Filter</button>
+</form>
+<form method="post" action="{{ url_for('leads.bulk') }}">
+{% if current_user.sees_all_leads %}
+<div class="filters noprint"><select name="action"><option value="">Bulk action…</option><option value="assign">Assign to</option><option value="auto_assign">Auto-assign</option><option value="stage">Move to stage</option><option value="archive">Archive</option></select>
+<select name="assigned_to_id"><option value="">— staff —</option>{% for u in users %}<option value="{{ u.id }}">{{ u.name }}</option>{% endfor %}</select>
+<select name="stage"><option value="">— stage —</option>{% for c,l in stages %}<option value="{{ c }}">{{ l }}</option>{% endfor %}</select>
+<button class="btn ghost sm">Apply to selected</button></div>{% endif %}
+<div class="tbl"><table>
+<tr><th><input type="checkbox" onclick="document.querySelectorAll('.ck').forEach(c=>c.checked=this.checked)"></th><th>Name</th><th>Phone</th><th>Course / Country</th><th>Stage</th><th>Score</th><th>Owner</th><th>Follow-up</th><th>Source</th><th>Created</th></tr>
+{% for l in page.items %}<tr>
+<td><input type="checkbox" class="ck" name="ids" value="{{ l.id }}"></td>
+<td><a href="{{ url_for('leads.detail', lid=l.id) }}"><b>{{ l.name }}</b></a></td>
+<td><a href="tel:{{ l.phone }}">{{ l.phone }}</a></td>
+<td>{{ l.course or '—' }}{% if l.country_preference %} · {{ l.country_preference }}{% endif %}</td>
+<td><span class="tag">{{ l.stage_label }}</span></td>
+<td><span class="tag {{ l.temperature }}">{{ l.score }}</span></td>
+<td>{{ l.assigned_to.name if l.assigned_to else '—' }}</td>
+<td class="small" {% if l.followup_overdue %}style="color:var(--bad)"{% endif %}>{{ l.next_followup_at|dt('%d %b %H:%M') }}</td>
+<td class="small">{{ l.source }}</td><td class="small">{{ l.created_at|dt }}</td></tr>
+{% else %}<tr><td colspan="10" class="muted">No leads match.</td></tr>{% endfor %}
+</table></div></form>
+<p>{% if page.has_prev %}<a href="{{ url_for(request.endpoint, page=page.prev_num, **request.args.to_dict()|dict_without_page) }}">← Prev</a>{% endif %}
+Page {{ page.page }} of {{ page.pages or 1 }}
+{% if page.has_next %}<a href="{{ url_for(request.endpoint, page=page.next_num, **request.args.to_dict()|dict_without_page) }}">Next →</a>{% endif %}</p>
+{% endblock %}

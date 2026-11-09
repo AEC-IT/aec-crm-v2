@@ -1,0 +1,7 @@
+{% extends "base.html" %}{% block title %}Lead Sources{% endblock %}
+{% block content %}
+<h1>Lead source &amp; campaign analysis</h1><p class="sub">Which sources and Meta campaigns bring students who actually enrol.</p>{% include "_days.html" %}
+<div class="tbl"><table><tr><th>Source</th><th>Campaign</th><th class="right">Leads</th><th class="right">Hot</th><th class="right">Converted</th><th class="right">Conversion</th></tr>
+{% for src,camp,n,conv,hot in rows %}<tr><td>{{ src or 'Not set' }}</td><td>{{ camp or '—' }}</td><td class="right">{{ n }}</td><td class="right">{{ hot or 0 }}</td><td class="right">{{ conv or 0 }}</td><td class="right">{{ ((conv or 0)/n*100)|round(1) }}%</td></tr>
+{% else %}<tr><td colspan="6" class="muted">No data.</td></tr>{% endfor %}</table></div>
+{% endblock %}

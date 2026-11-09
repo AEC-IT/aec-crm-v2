@@ -1,0 +1,161 @@
+"""WhatsApp inbox via Meta Cloud API (webhook in, send out)."""
+import json
+import urllib.request
+from datetime import datetime
+from flask import Blueprint, render_template, request, redirect, url_for, flash, abort, current_app
+from flask_login import login_required, current_user
+from sqlalchemy import func
+from .auth import requires
+from .models import now_ist
+from .models import db, WhatsAppMessage, Lead, WhatsAppTemplate, Charge
+from .services import normalize_phone, log, auto_assign, notify, new_token, fill_template
+
+bp = Blueprint("comms", __name__)
+
+
+def _post(payload):
+    token, pid = current_app.config.get("WHATSAPP_TOKEN"), current_app.config.get("WHATSAPP_PHONE_ID")
+    if not (token and pid):
+        return False, "WhatsApp API not configured — message saved in the CRM only."
+    req = urllib.request.Request(f"https://graph.facebook.com/v20.0/{pid}/messages",
+                                 data=json.dumps({"messaging_product": "whatsapp", **payload}).encode(),
+                                 headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"})
+    try:
+        urllib.request.urlopen(req, timeout=15)
+        return True, "sent"
+    except Exception as e:  # noqa
+        return False, f"WhatsApp error: {e}"
+
+
+def in_service_window(phone):
+    """Meta allows free-text replies only within 24 h of the customer's last message."""
+    from datetime import timedelta
+    last = WhatsAppMessage.query.filter_by(phone=phone, direction="in").order_by(WhatsAppMessage.created_at.desc()).first()
+    return bool(last and last.created_at > now_ist() - timedelta(hours=24))
+
+
+def send_template_to_lead(tpl, lead, user=None, charge=None):
+    """Fill the template for this lead and send it: free text inside the 24-hour window,
+    otherwise the Meta-approved template (variables passed in the order they appear in the body)."""
+    import re
+    text, vals = fill_template(tpl.body, lead, charge)
+    phone = lead.whatsapp or lead.phone
+    if in_service_window(phone) or not tpl.meta_name:
+        ok, info = _post({"to": phone.lstrip("+"), "type": "text", "text": {"body": text}})
+        if not ok and not in_service_window(phone) and "configured" not in info:
+            info += " (outside 24 h — add the Meta template name to this template)"
+    else:
+        params = [{"type": "text", "text": vals.get(k, "") or "-"} for k in re.findall(r"{(\w+)}", tpl.body)]
+        comp = [{"type": "body", "parameters": params}] if params else []
+        ok, info = _post({"to": phone.lstrip("+"), "type": "template",
+                          "template": {"name": tpl.meta_name, "language": {"code": tpl.language or "en"}, "components": comp}})
+    db.session.add(WhatsAppMessage(lead_id=lead.id, phone=phone, direction="out", body=text, read=True))
+    log(lead, f"[Template: {tpl.title}] {text}" + ("" if ok else f"\n⚠ {info}"), "whatsapp", user)
+    lead.last_contacted_at = now_ist()
+    return ok, info
+
+
+@bp.route("/leads/<int:lid>/send-template", methods=["POST"])
+@requires("leads")
+def send_template(lid):
+    from .leads import get_lead
+    lead = get_lead(lid)
+    tpl = db.session.get(WhatsAppTemplate, request.form.get("template_id", type=int)) or abort(404)
+    charge = db.session.get(Charge, request.form.get("charge_id", type=int)) if request.form.get("charge_id") else None
+    ok, info = send_template_to_lead(tpl, lead, current_user, charge)
+    db.session.commit()
+    flash("WhatsApp sent" if ok else info, "ok" if ok else "error")
+    return redirect(request.referrer or url_for("leads.detail", lid=lid))
+
+
+@bp.route("/whatsapp/preview/<int:lid>/<int:tid>")
+@requires("leads")
+def preview(lid, tid):
+    from .leads import get_lead
+    tpl = db.session.get(WhatsAppTemplate, tid) or abort(404)
+    return fill_template(tpl.body, get_lead(lid))[0]
+
+
+def send_whatsapp(to, body):
+    """Send a text message. Returns (ok, info). Without credentials, it only logs."""
+    token, pid = current_app.config.get("WHATSAPP_TOKEN"), current_app.config.get("WHATSAPP_PHONE_ID")
+    if not (token and pid):
+        return False, "WhatsApp API not configured — message saved only."
+    req = urllib.request.Request(
+        f"https://graph.facebook.com/v20.0/{pid}/messages",
+        data=json.dumps({"messaging_product": "whatsapp", "to": to.lstrip("+"), "type": "text",
+                         "text": {"body": body}}).encode(),
+        headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"})
+    try:
+        urllib.request.urlopen(req, timeout=15)
+        return True, "sent"
+    except Exception as e:  # noqa
+        return False, str(e)
+
+
+@bp.route("/whatsapp/")
+@requires("leads")
+def inbox():
+    sub = db.session.query(WhatsAppMessage.phone, func.max(WhatsAppMessage.id).label("mid"))\
+        .group_by(WhatsAppMessage.phone).subquery()
+    last = WhatsAppMessage.query.join(sub, WhatsAppMessage.id == sub.c.mid).order_by(WhatsAppMessage.id.desc())
+    convs = last.all()
+    if not current_user.sees_all_leads:
+        convs = [m for m in convs if m.lead and m.lead.assigned_to_id == current_user.id]
+    if request.args.get("filter") == "unread":
+        unread_phones = {p for (p,) in db.session.query(WhatsAppMessage.phone).filter_by(direction="in", read=False)}
+        convs = [m for m in convs if m.phone in unread_phones]
+    unread = dict(db.session.query(WhatsAppMessage.phone, func.count()).filter_by(direction="in", read=False)
+                  .group_by(WhatsAppMessage.phone).all())
+    return render_template("whatsapp.html", convs=convs, unread=unread)
+
+
+@bp.route("/whatsapp/<path:phone>", methods=["GET", "POST"])
+@requires("leads")
+def thread(phone):
+    phone = normalize_phone(phone)
+    lead = Lead.query.filter((Lead.whatsapp == phone) | (Lead.phone == phone)).first()
+    if request.method == "POST" and request.form.get("body"):
+        body = request.form["body"].strip()
+        ok, info = send_whatsapp(phone, body)
+        db.session.add(WhatsAppMessage(lead_id=lead.id if lead else None, phone=phone, direction="out", body=body, read=True))
+        if lead:
+            log(lead, body, "whatsapp", current_user)
+            lead.last_contacted_at = now_ist()
+        db.session.commit()
+        if not ok:
+            flash(info, "error")
+        return redirect(url_for("comms.thread", phone=phone))
+    WhatsAppMessage.query.filter_by(phone=phone, direction="in", read=False).update({"read": True})
+    db.session.commit()
+    msgs = WhatsAppMessage.query.filter_by(phone=phone).order_by(WhatsAppMessage.created_at).all()
+    return render_template("whatsapp_thread.html", msgs=msgs, phone=phone, lead=lead)
+
+
+@bp.route("/webhooks/whatsapp", methods=["GET", "POST"])
+def webhook():
+    if request.method == "GET":  # Meta verification
+        if request.args.get("hub.verify_token") == current_app.config["WHATSAPP_VERIFY_TOKEN"]:
+            return request.args.get("hub.challenge", "")
+        abort(403)
+    data = request.get_json(silent=True) or {}
+    for entry in data.get("entry", []):
+        for ch in entry.get("changes", []):
+            val = ch.get("value", {})
+            names = {c["wa_id"]: c.get("profile", {}).get("name") for c in val.get("contacts", [])}
+            for m in val.get("messages", []):
+                phone = normalize_phone(m.get("from"))
+                body = m.get("text", {}).get("body") or f"[{m.get('type')}]"
+                lead = Lead.query.filter((Lead.whatsapp == phone) | (Lead.phone == phone)).first()
+                if not lead:  # every new chat becomes a lead and gets an owner
+                    lead = Lead(name=names.get(m.get("from")) or f"WhatsApp {phone[-4:]}", phone=phone,
+                                whatsapp=phone, source="WhatsApp", portal_token=new_token())
+                    db.session.add(lead)
+                    db.session.flush()
+                    auto_assign(lead)
+                    log(lead, "Lead created from incoming WhatsApp", "system")
+                db.session.add(WhatsAppMessage(lead_id=lead.id, phone=phone, direction="in", body=body))
+                log(lead, body, "whatsapp")
+                notify(lead.assigned_to_id, f"WhatsApp from {lead.name}", f"/whatsapp/{phone}")
+    db.session.commit()
+    return "ok"

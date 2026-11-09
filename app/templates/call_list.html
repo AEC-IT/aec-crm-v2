@@ -1,0 +1,14 @@
+{% extends "base.html" %}{% block title %}Call List{% endblock %}
+{% macro rows(items) %}<div class="tbl"><table><tr><th>Lead</th><th>Phone</th><th>Stage</th><th>Due</th><th>Note</th><th>Owner</th><th></th></tr>
+{% for l in items %}<tr><td><a href="{{ url_for('leads.detail', lid=l.id) }}"><b>{{ l.name }}</b></a> <span class="tag {{ l.temperature }}">{{ l.score }}</span></td>
+<td><a class="btn sm green" href="tel:{{ l.phone }}">📞 {{ l.phone }}</a></td><td><span class="tag">{{ l.stage_label }}</span></td>
+<td class="small" style="{{ 'color:var(--bad)' if l.followup_overdue }}">{{ l.next_followup_at|dt('%d %b %H:%M') if l.next_followup_at else 'New' }}</td>
+<td class="small">{{ l.next_followup_note or l.course or '' }}</td><td class="small">{{ l.assigned_to.name if l.assigned_to else '—' }}</td>
+<td><a class="btn sm ghost" href="{{ url_for('leads.detail', lid=l.id) }}#log">Log call</a></td></tr>
+{% else %}<tr><td colspan="7" class="muted">Nothing here.</td></tr>{% endfor %}</table></div>{% endmacro %}
+{% block content %}
+<div class="head"><div><h1>Today's call list</h1><p class="sub" style="margin:0">{{ due|length }} follow-ups due · {{ fresh|length }} new leads never contacted</p></div>
+{% if current_user.sees_all_leads %}<a class="btn ghost" href="?mine={{ '' if request.args.mine else '1' }}">{{ 'Show everyone' if request.args.mine else 'Only mine' }}</a>{% endif %}</div>
+<h2>Follow-ups due (overdue first)</h2>{{ rows(due) }}
+<h2 style="margin-top:20px">New leads — call first</h2>{{ rows(fresh) }}
+{% endblock %}

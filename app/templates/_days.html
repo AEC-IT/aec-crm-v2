@@ -1,0 +1,1 @@
+<div class="filters">{% for d in [30,90,180,365,3650] %}<a class="btn sm {{ '' if days==d else 'ghost' }}" href="?days={{ d }}">{{ 'All time' if d==3650 else ('Last ' ~ d ~ ' days') }}</a>{% endfor %}</div>

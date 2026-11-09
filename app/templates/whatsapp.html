@@ -1,0 +1,11 @@
+{% extends "base.html" %}{% block title %}WhatsApp{% endblock %}
+{% block content %}
+<div class="head"><div><h1>WhatsApp inbox</h1><p class="sub" style="margin:0">{{ convs|length }} conversations · {{ unread_whatsapp }} unread · every new chat is linked to a lead and an owner automatically</p></div>
+<div><a class="btn sm {{ 'ghost' if request.args.filter }}" href="?">All</a> <a class="btn sm {{ '' if request.args.filter else 'ghost' }}" href="?filter=unread">Unread</a></div></div>
+<div class="card" style="padding:0">{% for m in convs %}
+<a href="{{ url_for('comms.thread', phone=m.phone) }}" style="display:flex;justify-content:space-between;gap:12px;padding:12px 16px;border-bottom:1px solid var(--line);color:inherit">
+<div><b>{{ m.lead.name if m.lead else m.phone }}</b> <span class="small muted">{{ m.phone }}{% if m.lead %} · {{ m.lead.stage_label }} · {{ m.lead.assigned_to.name if m.lead.assigned_to else 'Unassigned' }}{% endif %}</span>
+<div class="small muted">{{ '↩ ' if m.direction=='out' }}{{ (m.body or '')[:110] }}</div></div>
+<div class="small" style="white-space:nowrap;text-align:right">{{ m.created_at|dt('%d %b %H:%M') }}{% if unread.get(m.phone) %}<br><span class="pill">{{ unread[m.phone] }}</span>{% endif %}</div></a>
+{% else %}<p class="muted" style="padding:16px">No conversations yet. Connect the Meta webhook in Admin → API Integrations.</p>{% endfor %}</div>
+{% endblock %}

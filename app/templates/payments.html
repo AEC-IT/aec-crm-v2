@@ -1,0 +1,10 @@
+{% extends "base.html" %}{% block title %}Payments{% endblock %}
+{% block content %}
+<div class="head"><div><h1>Payment records</h1><p class="sub" style="margin:0">{{ rows|length }} payments · total {{ total|inr }}</p></div>
+<a class="btn ghost" href="?{{ request.query_string.decode() }}&export=csv">⬇ Excel (CSV)</a></div>
+{% include "_period.html" %}
+<div class="tbl"><table><tr><th>Receipt</th><th>Date</th><th>Student</th><th>For</th><th class="right">Amount</th><th>Mode</th><th>Reference</th><th></th></tr>
+{% for p in rows %}<tr><td>{{ p.receipt_no }}</td><td>{{ p.paid_on|dt }}</td><td>{% if p.lead %}<a href="{{ url_for('finance.lead_charges', lid=p.lead_id) }}">{{ p.lead.name }}</a>{% endif %}</td>
+<td>{{ p.charge.fee_type if p.charge else 'Manual payment' }}</td><td class="right">{{ p.amount|inr }}</td><td>{{ p.mode }}</td><td>{{ p.reference or '' }}</td><td><a class="btn sm ghost" href="{{ url_for('finance.receipt', pid=p.id) }}">Receipt</a></td></tr>
+{% else %}<tr><td colspan="8" class="muted">No payments in this period.</td></tr>{% endfor %}</table></div>
+{% endblock %}

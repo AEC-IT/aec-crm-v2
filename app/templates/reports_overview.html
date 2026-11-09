@@ -1,0 +1,8 @@
+{% extends "base.html" %}{% block title %}Reports{% endblock %}
+{% macro dist(rows) %}{% set mx = (rows|map(attribute=1)|max) if rows else 1 %}<table>{% for k,n in rows %}<tr><td style="width:40%">{{ k or 'Not set' }}</td><td><div class="bar"><i style="width:{{ (n/mx*100)|round }}%"></i></div></td><td class="right" style="width:50px">{{ n }}</td></tr>{% endfor %}</table>{% endmacro %}
+{% block content %}
+<div class="head"><div><h1>Reports overview</h1></div><div><a class="btn ghost" href="{{ url_for('reports.export', kind='all') }}">⬇ Export all data</a> <a class="btn ghost" href="{{ url_for('reports.export', kind='pipeline') }}">⬇ Export pipeline</a></div></div>
+{% include "_days.html" %}
+<div class="kpis"><div class="kpi"><span>New leads</span><b>{{ total }}</b></div><div class="kpi"><span>Converted</span><b>{{ conv }}</b><span>{{ ((conv/total*100) if total else 0)|round(1) }}%</span></div><div class="kpi"><span>Lost</span><b>{{ lost }}</b></div></div>
+<div class="row"><div class="card"><h2>By source</h2>{{ dist(by_source) }}</div><div class="card"><h2>Course demand</h2>{{ dist(by_course) }}</div><div class="card"><h2>Country demand</h2>{{ dist(by_country) }}</div></div>
+{% endblock %}

@@ -1,0 +1,8 @@
+{% extends "base.html" %}{% block title %}Enrollment Projection{% endblock %}
+{% block content %}
+<h1>Enrollment projection</h1><p class="sub">Expected enrolments from the open pipeline, weighting each phase by its typical chance of conversion.</p>
+<div class="kpis"><div class="kpi"><span>Projected enrolments</span><b>{{ total|round(1) }}</b></div></div>
+<div class="card"><table><tr><th>Phase</th><th class="right">Open leads</th><th class="right">Probability</th><th class="right">Expected</th></tr>
+{% for p,n,w,e in rows %}<tr><td>{{ p }}</td><td class="right">{{ n }}</td><td class="right">{{ (w*100)|round }}%</td><td class="right"><b>{{ e }}</b></td></tr>{% endfor %}</table>
+<p class="small muted">Probabilities are starting estimates — adjust them in reports.py once you have a season of data.</p></div>
+{% endblock %}

@@ -1,0 +1,38 @@
+{% extends "base.html" %}{% block title %}Dashboard{% endblock %}
+{% block content %}
+<div class="head"><div><h1>Dashboard</h1><p class="sub" style="margin:0">AEC Studies — lead pipeline overview</p></div>
+<div><a class="btn" href="{{ url_for('leads.call_list') }}">Open today's call list</a></div></div>
+<div class="kpis">
+  <div class="kpi"><span>Total leads</span><b>{{ total }}</b><span>{{ week_new }} new this week</span></div>
+  <div class="kpi"><span>Active pipeline</span><b>{{ active }}</b><span>in progress now</span></div>
+  <div class="kpi"><span>Converted</span><b>{{ converted }}</b><span>{{ ((converted/total*100) if total else 0)|round(1) }}% conversion</span></div>
+  <div class="kpi"><span>Revenue received</span><b>{{ revenue|inr }}</b><span>all payments</span></div>
+  <div class="kpi"><span>Follow-ups due today</span><b>{{ due_today }}</b><span><a href="{{ url_for('leads.index', followup='overdue') }}">{{ overdue|length }}{% if overdue|length==10 %}+{% endif %} overdue</a></span></div>
+  <div class="kpi"><span>Unassigned leads</span><b>{{ unassigned }}</b><span><a href="{{ url_for('leads.index', assigned_to_id='none') }}">assign now</a></span></div>
+</div>
+<div class="row">
+ <div class="card"><h2>🔴 Overdue follow-ups</h2>
+  {% for l in overdue %}<div style="display:flex;justify-content:space-between;border-bottom:1px solid var(--line);padding:7px 0">
+   <div><a href="{{ url_for('leads.detail', lid=l.id) }}"><b>{{ l.name }}</b></a> <span class="tag">{{ l.stage_label }}</span><div class="small muted">{{ l.next_followup_note or '' }}</div></div>
+   <div class="small" style="color:var(--bad);white-space:nowrap">{{ (now - l.next_followup_at).days }} days</div></div>
+  {% else %}<p class="muted">Nothing overdue. 🎉</p>{% endfor %}
+ </div>
+ <div class="card"><h2>🔥 Hottest leads</h2>
+  {% for l in hot %}<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--line)"><a href="{{ url_for('leads.detail', lid=l.id) }}">{{ l.name }}</a><span><span class="tag">{{ l.stage_label }}</span> <span class="tag hot">{{ l.score }}</span></span></div>
+  {% else %}<p class="muted">No hot leads yet. Scores rise as NEET, budget, passport and documents are filled in.</p>{% endfor %}
+ </div>
+ <div class="card"><h2>📅 Today's appointments</h2>
+  {% for a in appts %}<div style="padding:6px 0;border-bottom:1px solid var(--line)"><b>{{ a.starts_at|dt('%H:%M') }}</b> {{ a.title }} <span class="tag">{{ a.mode }}</span>{% if a.user %} · {{ a.user.name }}{% endif %}</div>
+  {% else %}<p class="muted">No appointments today. <a href="{{ url_for('modules.crud_form', name='appointments') }}">Schedule one</a></p>{% endfor %}
+ </div>
+</div>
+<div class="card"><div class="head" style="margin:0 0 10px"><h2 style="margin:0">Lead pipeline</h2><a href="{{ url_for('reports.funnel') }}">Full funnel →</a></div>
+ <div class="row">
+ {% for phase, group in phases %}{% set n = namespace(t=0) %}{% for c,_ in group %}{% set n.t = n.t + counts.get(c,0) %}{% endfor %}
+  <div style="min-width:180px"><div class="small muted" style="text-transform:uppercase;font-weight:600">{{ phase }} · {{ n.t }}</div>
+  {% for code, label in group %}<a href="{{ url_for('leads.index', stage=code) }}" style="display:flex;justify-content:space-between;padding:4px 0;color:inherit"><span>{{ label }}</span><b>{{ counts.get(code,0) }}</b></a>{% endfor %}</div>
+ {% endfor %}</div>
+</div>
+<div class="card"><h2>Team performance</h2><table><tr><th>Staff</th><th>Role</th><th class="right">Leads</th><th class="right">Converted</th><th class="right">Rate</th></tr>
+{% for u, n, c in performers %}<tr><td>{{ u.name }}</td><td>{{ u.role_label }}</td><td class="right">{{ n }}</td><td class="right">{{ c or 0 }}</td><td class="right">{{ ((c or 0)/n*100)|round(1) if n else 0 }}%</td></tr>{% endfor %}</table></div>
+{% endblock %}

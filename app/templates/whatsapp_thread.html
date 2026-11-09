@@ -1,0 +1,11 @@
+{% extends "base.html" %}{% block title %}WhatsApp · {{ phone }}{% endblock %}
+{% block content %}
+<div class="head"><div><h1>{{ lead.name if lead else phone }}</h1><p class="sub" style="margin:0">{{ phone }}{% if lead %} · <a href="{{ url_for('leads.detail', lid=lead.id) }}">Open lead</a> · {{ lead.stage_label }}{% endif %}</p></div>
+<a class="btn ghost" href="{{ url_for('comms.inbox') }}">← Inbox</a></div>
+<div class="card" style="background:#efeae2;max-height:60vh;overflow-y:auto" id="msgs">
+{% for m in msgs %}<div style="display:flex;justify-content:{{ 'flex-end' if m.direction=='out' else 'flex-start' }};margin:6px 0">
+<div style="max-width:75%;background:{{ '#d9fdd3' if m.direction=='out' else '#fff' }};padding:7px 10px;border-radius:8px;white-space:pre-wrap">{{ m.body }}<div class="small muted right">{{ m.created_at|dt('%d %b %H:%M') }}</div></div></div>
+{% else %}<p class="muted">No messages yet.</p>{% endfor %}</div>
+<form method="post" class="filters"><textarea name="body" placeholder="Type a reply… (outside the 24-hour window Meta requires an approved template)" style="flex:1;min-height:50px" required></textarea><button class="btn">Send</button></form>
+{% endblock %}
+{% block scripts %}<script>const m=document.getElementById('msgs');m.scrollTop=m.scrollHeight;</script>{% endblock %}

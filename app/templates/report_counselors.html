@@ -1,0 +1,7 @@
+{% extends "base.html" %}{% block title %}Counsellor Performance{% endblock %}
+{% block content %}
+<h1>Counsellor performance</h1>{% include "_days.html" %}
+<div class="tbl"><table><tr><th>Staff</th><th>Role</th><th class="right">Leads</th><th class="right">Calls logged</th><th class="right">Converted</th><th class="right">Conversion</th><th class="right">Overdue follow-ups</th><th class="right">Never contacted</th></tr>
+{% for u,n,calls,conv,overdue,untouched in data %}<tr><td><a href="{{ url_for('leads.index', assigned_to_id=u.id) }}">{{ u.name }}</a></td><td>{{ u.role_label }}</td><td class="right">{{ n }}</td><td class="right">{{ calls }}</td><td class="right">{{ conv }}</td>
+<td class="right">{{ (conv/n*100)|round(1) if n else 0 }}%</td><td class="right" style="{{ 'color:var(--bad)' if overdue }}">{{ overdue }}</td><td class="right" style="{{ 'color:var(--warn)' if untouched }}">{{ untouched }}</td></tr>{% endfor %}</table></div>
+{% endblock %}

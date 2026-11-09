@@ -1,0 +1,15 @@
+{% extends "base.html" %}{% block title %}Front Desk{% endblock %}
+{% block content %}
+<div class="head"><div><h1>Front desk</h1><p class="sub" style="margin:0">{{ now|dt('%A, %d %B %Y') }} · today at a glance</p></div>
+<div><a class="btn" href="{{ url_for('modules.crud_form', name='visitors') }}">+ Log visitor</a> <a class="btn ghost" href="{{ url_for('modules.crud_form', name='couriers') }}">+ Courier entry</a></div></div>
+<div class="kpis"><div class="kpi"><span>Visitors today</span><b>{{ visitors|length }}</b></div>
+<div class="kpi"><span>Courier in</span><b>{{ couriers|selectattr('direction','equalto','in')|list|length }}</b></div>
+<div class="kpi"><span>Courier out</span><b>{{ couriers|selectattr('direction','equalto','out')|list|length }}</b></div>
+<div class="kpi"><span>Bills pending</span><b>{{ bills_pending|length }}</b></div><div class="kpi"><span>Inventory items</span><b>{{ inventory }}</b></div></div>
+<div class="row"><div class="card"><h2>Today's visitors</h2>
+{% for v in visitors %}<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--line)"><span><b>{{ v.name }}</b> · {{ v.purpose or '' }} <span class="small muted">in {{ v.in_time|dt('%H:%M') }}{% if v.out_time %} · out {{ v.out_time|dt('%H:%M') }}{% endif %}</span></span>
+{% if not v.out_time %}<form method="post" action="{{ url_for('modules.visitor_out', vid=v.id) }}"><button class="btn sm green">Check out</button></form>{% endif %}</div>
+{% else %}<p class="muted">No visitors logged today.</p>{% endfor %}</div>
+<div class="card"><h2>Bills due</h2>{% for b in bills_pending %}<div style="padding:5px 0;border-bottom:1px solid var(--line)"><a href="{{ url_for('modules.crud_form', name='bills', oid=b.id) }}">{{ b.name }}</a> · {{ b.amount|inr }} · <span {% if b.due_date and b.due_date < now.date() %}style="color:var(--bad)"{% endif %}>{{ b.due_date|dt }}</span></div>
+{% else %}<p class="muted">No pending bills.</p>{% endfor %}</div></div>
+{% endblock %}

@@ -1,0 +1,10 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Receipt {{ p.receipt_no }}</title>
+<style>body{font:14px/1.5 system-ui,sans-serif;max-width:640px;margin:30px auto;color:#16202e}h1{margin:0;font-size:20px}.box{border:1px solid #ccc;border-radius:8px;padding:24px}
+td{padding:6px 0}.amt{font-size:26px;font-weight:700}@media print{button{display:none}}</style></head><body>
+<div class="box"><div style="display:flex;justify-content:space-between"><div><h1>AEC Studies Pvt. Ltd.</h1><div>2nd Floor, Kollanur Plaza, Nettipadam Road, Ernakulam – 682 016</div><div>+91 95269 90444 · info@aec-edu.com</div></div>
+<div style="text-align:right"><b>PAYMENT RECEIPT</b><div>{{ p.receipt_no }}</div><div>{{ p.paid_on.strftime('%d %b %Y') if p.paid_on else '' }}</div></div></div><hr>
+<table style="width:100%"><tr><td>Received from</td><td><b>{{ p.lead.name if p.lead else '' }}</b> ({{ p.lead.phone if p.lead else '' }})</td></tr>
+<tr><td>Towards</td><td>{{ p.charge.fee_type if p.charge else 'Advance / manual payment' }}{% if p.charge and p.charge.description %} — {{ p.charge.description }}{% endif %}</td></tr>
+<tr><td>Mode</td><td>{{ p.mode }}{% if p.reference %} · Ref {{ p.reference }}{% endif %}</td></tr></table>
+<p class="amt">₹ {{ '{:,.2f}'.format(p.amount) }}</p><p style="margin-top:50px;text-align:right">Authorised signatory</p></div>
+<p><button onclick="print()">Print / Save PDF</button></p></body></html>

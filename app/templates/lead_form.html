@@ -1,0 +1,57 @@
+{% extends "base.html" %}{% block title %}{{ 'Edit' if lead.id else 'New' }} Lead{% endblock %}
+{% macro inp(name, label, type='text', req=False) %}<div><label>{{ label }}{% if req %} *{% endif %}</label><input type="{{ type }}" name="{{ name }}" {% if type=='number' %}step="any"{% endif %} value="{{ lead[name] if lead[name] is not none else '' }}" {{ 'required' if req }}></div>{% endmacro %}
+{% macro sel(name, label, opts) %}<div><label>{{ label }}</label><select name="{{ name }}"><option value="">—</option>{% for o in opts %}<option {{ 'selected' if lead[name]==o }}>{{ o }}</option>{% endfor %}</select></div>{% endmacro %}
+{% block content %}
+<h1>{{ 'Edit lead' if lead.id else 'New lead' }}</h1><p class="sub">Fields marked * are required. Phone numbers are saved as +91… automatically.</p>
+{% if dups %}<div class="card" style="border-color:var(--bad)"><h2 style="color:var(--bad)">⚠ Possible duplicate</h2>
+{% for d in dups %}<div><a href="{{ url_for('leads.detail', lid=d.id) }}" target="_blank">#{{ d.id }} {{ d.name }}</a> · {{ d.phone }} · {{ d.stage_label }}</div>{% endfor %}</div>{% endif %}
+<form method="post" id="leadform">
+<div class="card"><h2>Contact</h2><div class="grid">
+ {{ inp('name','Full name',req=True) }}
+ <div><label>Phone *</label><input name="phone" id="phone" required value="{{ lead.phone or '' }}"><div id="dupmsg" class="small" style="color:var(--bad)"></div></div>
+ {{ inp('whatsapp','WhatsApp (if different)') }} {{ inp('email','Email','email') }}
+ {{ inp('parent_name','Parent name') }} {{ inp('parent_phone','Parent phone') }}
+ {{ sel('preferred_language','Preferred language',['Malayalam','English','Tamil','Hindi','Kannada','Arabic']) }}
+</div></div>
+<div class="card"><h2>Interest &amp; ownership</h2><div class="grid">
+ {{ sel('course','Course',courses) }} {{ sel('country_preference','Country preference',countries) }}
+ {{ inp('budget','Budget (₹ total)','number') }} {{ inp('intended_intake','Intended intake (e.g. Sep 2027)') }}
+ {{ sel('source','Lead source',sources) }} {{ inp('campaign','Campaign') }} {{ inp('ad_name','Ad name') }}
+ {{ sel('priority','Priority',['high','medium','low']) }}
+ {% if current_user.sees_all_leads %}<div><label>Assign to</label><select name="assigned_to_id"><option value="">— Auto-assign —</option>{% for u in users %}<option value="{{ u.id }}" {{ 'selected' if lead.assigned_to_id==u.id }}>{{ u.name }} ({{ u.role_label }})</option>{% endfor %}</select></div>{% endif %}
+ <div><label>Branch</label><select name="branch_id"><option value="">—</option>{% for b in branches %}<option value="{{ b.id }}" {{ 'selected' if lead.branch_id==b.id }}>{{ b.name }}</option>{% endfor %}</select></div>
+</div></div>
+<div class="card"><h2>Personal</h2><div class="grid">
+ {{ sel('gender','Gender',['Male','Female','Other']) }} {{ inp('dob','Date of birth','date') }}
+ {{ inp('location','Location / town') }} {{ inp('district','District') }} {{ inp('state','State') }}
+ {{ inp('parent_occupation','Parent occupation') }} {{ inp('self_occupation','Self occupation') }}
+</div></div>
+<div class="card"><h2>Academic</h2><div class="grid">
+ {{ inp('tenth_year','10th year','number') }} {{ inp('tenth_percent','10th mark %','number') }}
+ {{ inp('twelfth_year','12th year','number') }} {{ inp('twelfth_percent','12th mark %','number') }}
+ {{ inp('twelfth_group','12th group') }} {{ inp('pcb_percent','PCB %','number') }}
+ {{ inp('neet_score','NEET score','number') }} {{ inp('neet_year','NEET year','number') }}
+ {{ inp('degree_name','Degree name') }} {{ inp('graduation_year','Graduation year','number') }} {{ inp('graduation_cgpa','Graduation CGPA','number') }}
+ {{ inp('english_test','English test (IELTS score etc.)') }}
+</div></div>
+<div class="card"><h2>Qualification</h2><div class="grid">
+ {{ sel('funding_source','Funding source',['Self funded','Education loan','Parents / family','Sponsor']) }}
+ {{ sel('passport_status','Passport status',['Ready','Applied','Not yet']) }} {{ inp('passport_number','Passport no.') }} {{ inp('passport_expiry','Passport expiry','date') }}
+ {{ sel('decision_maker','Decision maker',['Student','Parents','Both']) }}
+ {{ inp('competitor','Competitor agency (if any)') }} {{ inp('objection','Main objection') }}
+ <div><label><input type="checkbox" name="budget_confirmed" {{ 'checked' if lead.budget_confirmed }}> Budget confirmed</label>
+ <label><input type="checkbox" name="documents_ready" {{ 'checked' if lead.documents_ready }}> Documents ready</label></div>
+</div></div>
+<div class="card"><h2>Visa &amp; travel</h2><div class="grid">
+ {{ inp('visa_applied_on','Visa applied on','date') }} {{ sel('visa_status','Visa status',['Not started','Applied','Approved','Rejected']) }}
+ {{ inp('visa_expiry','Visa expiry','date') }} {{ inp('flight_date','Flight date','date') }} {{ inp('flight_details','Flight details / PNR') }}
+</div></div>
+{% if dups %}<label style="margin-bottom:12px"><input type="checkbox" name="confirm_duplicate"> Create anyway (I checked — this is a different person)</label>{% endif %}
+<button class="btn">Save lead</button> <a class="btn ghost" href="{{ url_for('leads.detail', lid=lead.id) if lead.id else url_for('leads.index') }}">Cancel</a>
+</form>
+{% endblock %}
+{% block scripts %}<script>
+const ph=document.getElementById('phone');ph&&ph.addEventListener('blur',async()=>{if(ph.value.length<8)return;
+const r=await fetch('{{ url_for("leads.check_duplicate") }}?phone='+encodeURIComponent(ph.value)+'&exclude={{ lead.id or "" }}');const d=await r.json();
+document.getElementById('dupmsg').innerHTML=d.length?'Already exists: '+d.map(x=>`<a target=_blank href="/leads/${x.id}">${x.name} (${x.stage})</a>`).join(', '):'';});
+</script>{% endblock %}

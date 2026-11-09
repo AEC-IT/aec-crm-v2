@@ -1,0 +1,18 @@
+{% extends "base.html" %}{% block title %}2-step login{% endblock %}
+{% block head %}<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>{% endblock %}
+{% block content %}
+<h1>2-step login</h1><p class="sub">Protects student data even if someone learns your password.</p>
+{% if current_user.totp_secret %}
+<div class="card" style="max-width:460px"><p><span class="tag ok">ON</span> 2-step login is active on your account.</p>
+<form method="post"><label>Type your password to turn it off</label><input type="password" name="password" required>
+<button class="btn red sm" name="disable" value="1">Turn off</button></form></div>
+{% else %}
+<div class="card" style="max-width:460px"><ol style="padding-left:18px">
+<li>Install <b>Google Authenticator</b> or <b>Microsoft Authenticator</b> on your phone.</li>
+<li>Tap <b>+</b> → <b>Scan a QR code</b> and scan this:</li></ol>
+<div id="qr" style="margin:10px 0"></div><p class="small muted">Can't scan? Enter this key: <code>{{ secret }}</code></p>
+<form method="post"><label>3. Type the 6-digit code shown in the app</label>
+<input name="code" inputmode="numeric" maxlength="7" required> <button class="btn">Turn on</button></form></div>
+<script>new QRCode(document.getElementById('qr'),{text:{{ uri|tojson }},width:180,height:180});</script>
+{% endif %}
+{% endblock %}

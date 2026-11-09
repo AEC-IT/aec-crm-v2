@@ -1,0 +1,8 @@
+{% extends "base.html" %}{% block title %}Conversion Funnel{% endblock %}
+{% block content %}
+<h1>Conversion funnel</h1><p class="sub">How many of {{ total }} leads reached each stage. The drop between rows shows where students are lost.</p>
+{% include "_days.html" %}
+<div class="card"><table>{% set prev = namespace(v=None) %}{% for code,label,n in funnel %}<tr><td style="width:200px">{{ label }}</td>
+<td><div class="bar" style="height:18px"><i style="width:{{ (n/total*100)|round if total else 0 }}%"></i></div></td><td class="right" style="width:60px"><b>{{ n }}</b></td>
+<td class="right small muted" style="width:120px">{{ ((n/total*100)|round(1) if total else 0) }}%{% if prev.v %} · {{ (n/prev.v*100)|round }}% of prev{% endif %}</td></tr>{% set prev.v = n %}{% endfor %}</table></div>
+{% endblock %}
