@@ -35,8 +35,9 @@ STAGE_MAP = {
     "flight booked": "flight_booked", "student departed": "student_departed", "enrolled": "enrolled",
     "alumni": "alumni", "dropped out": "dropped_out", "refund requested": "refund_requested",
     "refund processed": "refund_processed", "documents requested": "application_started",
-    "application form": "application_started",
+    "application form": "application_started", "follow up": "connected", "no answer": "attempted_contact",
 }
+LOST_STAGES = {"not interested", "lost", "closed", "closed lost"}
 ALIASES = {  # new field: possible old column names
     "name": ["name", "full_name", "student_name"], "phone": ["phone", "mobile", "phone_number"],
     "whatsapp": ["whatsapp", "whatsapp_number"], "email": ["email"], "course": ["course"],
@@ -107,8 +108,9 @@ def import_leads(rows, dry):
                 continue
             setattr(lead, f, v)
         st = (get(r, "stage") or "").strip().lower().replace("_", " ")
-        if st in ("lost", "closed", "closed lost"):
+        if st in LOST_STAGES:
             lead.status = "lost"
+            lead.lost_reason = lead.lost_reason or st.capitalize()
         if (r.get("status") or "") in ("lost", "archived"):
             lead.status = r["status"]
         if STAGE_MAP.get(st) or st.replace(" ", "_") in STAGE_LABEL:
@@ -121,7 +123,7 @@ def import_leads(rows, dry):
         u = users.get(a) or users_by_name.get(a) or (db.session.get(User, int(a)) if a.isdigit() else None)
         if u and not lead.assigned_to_id:
             lead.assigned_to_id = u.id
-        elif a and not u and is_new:
+        elif a and not u and is_new and a != "unassigned":
             db.session.flush()
             db.session.add(Activity(lead_id=lead.id, kind="system", text=f"Owner in old CRM: {get(r, 'assigned_to')}"))
         if not lead.whatsapp:
@@ -135,7 +137,7 @@ def import_leads(rows, dry):
             merged += 1
         db.session.flush()
         note = get(r, "notes")
-        if note:
+        if note and note.strip() != "No notes yet.":
             db.session.add(Activity(lead_id=lead.id, kind="note", text=f"[Imported] {note}"))
         db.session.add(Activity(lead_id=lead.id, kind="system", text="Imported from old CRM" + ("" if is_new else " (duplicate merged)")))
     print(f"Leads: {created} created, {merged} duplicates merged, {skipped} skipped (no name/phone)")

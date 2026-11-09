@@ -74,3 +74,31 @@ def create_lead():
     run_rules("lead_created", lead)
     db.session.commit()
     return jsonify(ok=True, lead_id=lead.id, duplicate=False), 201
+
+
+@bp.route("/import", methods=["POST", "OPTIONS"])
+def bulk_import():
+    """Bulk CSV import (leads / universities / payments) authorised by an API key.
+    Accepts a simple form POST so a browser page on another site can send it."""
+    import csv, io, contextlib
+    from flask import make_response
+    if request.method == "OPTIONS":
+        resp = make_response("")
+    else:
+        key = request.args.get("key") or request.form.get("key")
+        integ = Integration.query.filter_by(api_key=key, active=True).first() if key else None
+        if not integ:
+            resp = make_response("invalid or missing API key", 401)
+        else:
+            import migrate
+            rows = list(csv.DictReader(io.StringIO(request.form.get("csv", ""))))
+            kind = request.form.get("kind", "leads")
+            buf = io.StringIO()
+            with contextlib.redirect_stdout(buf):
+                {"leads": migrate.import_leads, "universities": migrate.import_universities,
+                 "payments": migrate.import_payments}[kind](rows, bool(request.form.get("dry")))
+            integ.last_used = now_ist()
+            db.session.commit()
+            resp = make_response(buf.getvalue() or "done")
+    resp.headers["Access-Control-Allow-Origin"] = "*"
+    return resp
