@@ -361,3 +361,29 @@ def notifications():
         db.session.commit()
         return redirect(url_for("modules.notifications"))
     return render_template("notifications.html", items=q.order_by(Notification.created_at.desc()).limit(200).all())
+
+
+@bp.route("/admin/import", methods=["GET", "POST"])
+@requires("admin")
+def import_data():
+    """Import CSV exported from the old CRM (leads / universities / payments). Duplicates are merged."""
+    import csv
+    import io
+    import sys
+    import contextlib
+    sys.path.insert(0, os.path.dirname(current_app.root_path))
+    import migrate
+    out = None
+    if request.method == "POST":
+        kind = request.form.get("kind", "leads")
+        up = request.files.get("file")
+        text = up.read().decode("utf-8-sig") if up and up.filename else request.form.get("csv", "")
+        rows = list(csv.DictReader(io.StringIO(text)))
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            {"leads": migrate.import_leads, "universities": migrate.import_universities,
+             "payments": migrate.import_payments}[kind](rows, bool(request.form.get("dry")))
+        out = buf.getvalue() or "Done"
+        if request.form.get("api"):
+            return out
+    return render_template("import.html", out=out)
