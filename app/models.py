@@ -484,3 +484,12 @@ class WhatsAppTemplate(db.Model, TimeStamped):
     meta_name = db.Column(db.String(120))
     language = db.Column(db.String(10), default="en")
     active = db.Column(db.Boolean, default=True)
+
+
+class StoredFile(db.Model):
+    """Uploaded files kept in the database, so free hosting (no persistent disk) never loses them."""
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(255), unique=True, index=True)
+    mimetype = db.Column(db.String(120))
+    data = db.Column(db.LargeBinary)
+    created_at = db.Column(db.DateTime, default=now_ist)

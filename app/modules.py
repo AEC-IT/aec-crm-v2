@@ -12,7 +12,7 @@ from .models import now_ist
 from .models import (db, University, Brochure, Visitor, Courier, Bill, InventoryItem, OfficeRecord, Appointment,
                      OfficeTask, Expense, Branch, AutomationRule, Integration, Notification, Lead, User, Document, WhatsAppTemplate,
                      DOC_CHECKLIST, COURSES, COUNTRIES, PAY_MODES)
-from .services import log, notify
+from .services import save_upload, serve_upload, log, notify
 
 bp = Blueprint("modules", __name__)
 
@@ -264,7 +264,7 @@ def lead_documents(lid):
         up = request.files.get("file")
         if up and up.filename:
             fn = secure_filename(f"{lid}_{now_ist():%Y%m%d%H%M%S}_{up.filename}")
-            up.save(os.path.join(current_app.config["UPLOAD_FOLDER"], fn))
+            save_upload(up, fn)
             doc.filename, doc.status = fn, "uploaded"
         if f.get("status"):
             doc.status = f["status"]
@@ -284,7 +284,7 @@ def lead_documents(lid):
 @bp.route("/files/<path:fn>")
 @login_required
 def file(fn):
-    return send_from_directory(current_app.config["UPLOAD_FOLDER"], fn)
+    return serve_upload(fn)
 
 
 # ------------------------------------------------------------------ brochures
@@ -302,7 +302,7 @@ def brochures():
                 flash("Choose a file", "error")
                 return redirect(url_for("modules.brochures"))
             fn = secure_filename(f"brochure_{now_ist():%Y%m%d%H%M%S}_{up.filename}")
-            up.save(os.path.join(current_app.config["UPLOAD_FOLDER"], fn))
+            save_upload(up, fn)
             db.session.add(Brochure(course=request.form["course"], title=request.form["title"], filename=fn))
         db.session.commit()
         return redirect(url_for("modules.brochures"))
@@ -319,7 +319,7 @@ def brochure_public(bid):
         log(lead, f"Opened brochure '{b.title}'", "system")
         notify(lead.assigned_to_id, f"{lead.name} opened brochure {b.title}", f"/leads/{lid}")
     db.session.commit()
-    return send_from_directory(current_app.config["UPLOAD_FOLDER"], b.filename)
+    return serve_upload(b.filename)
 
 
 # ------------------------------------------------------------------ admin

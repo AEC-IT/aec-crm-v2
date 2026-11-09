@@ -9,7 +9,7 @@ from .models import now_ist
 from .models import (db, Lead, User, Branch, University, Application, Activity, Brochure, Appointment,
                      Payment, Charge, WhatsAppTemplate, DOC_CHECKLIST, Document, PHASES, STAGES, STAGE_LABEL, COURSES, COUNTRIES,
                      SOURCES, CONVERTED_STAGES)
-from .services import (normalize_phone, find_duplicates, log, auto_assign, merge_leads, change_stage,
+from .services import (save_upload, serve_upload, normalize_phone, find_duplicates, log, auto_assign, merge_leads, change_stage,
                        run_rules, new_token)
 
 bp = Blueprint("leads", __name__)
@@ -372,7 +372,7 @@ def portal(token):
         f = request.files["file"]
         name = request.form.get("doc_name") or "Other"
         fn = secure_filename(f"{lead.id}_{now_ist():%Y%m%d%H%M%S}_{f.filename}")
-        f.save(os.path.join(current_app.config["UPLOAD_FOLDER"], fn))
+        save_upload(f, fn)
         doc = lead.documents.filter_by(name=name).first() or Document(lead_id=lead.id, name=name)
         doc.filename, doc.status, doc.uploaded_by_portal = fn, "uploaded", True
         db.session.add(doc)

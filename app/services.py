@@ -156,3 +156,27 @@ def fill_template(body, lead, charge=None):
         def __missing__(self, k):
             return ""
     return (body or "").format_map(Safe(vals)), vals
+
+
+def save_upload(file_storage, fn):
+    """Store an uploaded file in the database under name `fn`."""
+    from .models import StoredFile
+    sf = StoredFile.query.filter_by(name=fn).first() or StoredFile(name=fn)
+    sf.data = file_storage.read()
+    sf.mimetype = file_storage.mimetype or "application/octet-stream"
+    db.session.add(sf)
+    return fn
+
+
+def serve_upload(fn):
+    """Return a file from the database, falling back to the old upload folder."""
+    import os
+    from flask import current_app, send_from_directory, Response, abort
+    from .models import StoredFile
+    sf = StoredFile.query.filter_by(name=fn).first()
+    if sf:
+        return Response(sf.data, mimetype=sf.mimetype,
+                        headers={"Content-Disposition": f'inline; filename="{fn}"'})
+    if os.path.exists(os.path.join(current_app.config["UPLOAD_FOLDER"], fn)):
+        return send_from_directory(current_app.config["UPLOAD_FOLDER"], fn)
+    abort(404)
