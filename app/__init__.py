@@ -12,8 +12,9 @@ login_manager.login_view = "auth.login"
 def create_app(config=None):
     app = Flask(__name__)
     db_url = os.environ.get("DATABASE_URL", "sqlite:///" + os.path.join(app.instance_path, "crm.db"))
-    if db_url.startswith("postgres://"):  # Render gives postgres://
-        db_url = db_url.replace("postgres://", "postgresql://", 1)
+    for prefix in ("postgres://", "postgresql://"):  # Render gives postgres://; pin the psycopg2 driver
+        if db_url.startswith(prefix):
+            db_url = "postgresql+psycopg2://" + db_url[len(prefix):]
     app.config.update(
         SECRET_KEY=os.environ.get("SECRET_KEY", "change-me-in-production"),
         SQLALCHEMY_DATABASE_URI=db_url,
