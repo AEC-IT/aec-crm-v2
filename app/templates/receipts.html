@@ -1,0 +1,15 @@
+{% extends "base.html" %}{% block title %}Receipts{% endblock %}
+{% block content %}
+<div class="head"><div><h1>Receipts</h1><p class="sub" style="margin:0">{{ count }} receipts · {{ total|inr }} received{% if cancelled %} · {{ cancelled }} cancelled{% endif %} · {{ d0|dt }} – {{ d1|dt }}</p></div>
+<div><a class="btn ghost" href="?{{ request.query_string.decode() }}&export=csv">⬇ Excel (CSV)</a> <a class="btn" href="{{ url_for('finance.receipt_new') }}">+ New receipt</a></div></div>
+{% include "_period.html" %}
+<form class="filters"><input name="q" placeholder="Student, phone, receipt no. or UTR" value="{{ request.args.q or '' }}" style="min-width:280px"><input type="hidden" name="p" value="{{ request.args.p or '' }}"><button class="btn ghost">Search</button></form>
+{% if by_mode %}<div class="kpis">{% for m,v in by_mode|dictsort(by='value', reverse=true) %}<div class="kpi"><span>{{ m }}</span><b>{{ v|inr }}</b></div>{% endfor %}</div>{% endif %}
+<div class="tbl"><table><tr><th>Receipt no.</th><th>Date</th><th>Student</th><th>For</th><th class="right">Amount</th><th>Mode</th><th>Ref / UTR</th><th></th></tr>
+{% for p in rows %}<tr {% if p.cancelled %}style="opacity:.55"{% endif %}><td><a href="{{ url_for('finance.receipt', pid=p.id) }}"><b>{{ p.receipt_no }}</b></a>{% if p.cancelled %} <span class="tag bad">cancelled</span>{% endif %}</td>
+<td>{{ p.paid_on|dt }}</td><td>{% if p.lead %}<a href="{{ url_for('leads.detail', lid=p.lead_id) }}">{{ p.lead.name }}</a>{% endif %}</td><td class="small">{{ p.purpose }}</td>
+<td class="right" style="{{ 'text-decoration:line-through' if p.cancelled }}">{{ p.amount|inr }}</td><td>{{ p.mode or '' }}</td><td class="small">{{ p.reference or '' }}</td>
+<td style="white-space:nowrap"><a class="btn sm ghost" href="{{ url_for('finance.receipt', pid=p.id) }}">View</a>
+{% if not p.cancelled and p.lead %}<form method="post" action="{{ url_for('finance.receipt_whatsapp', pid=p.id) }}" style="display:inline"><button class="btn sm green">💬 Send</button></form>{% endif %}</td></tr>
+{% else %}<tr><td colspan="8" class="muted">No receipts in this period. <a href="{{ url_for('finance.receipt_new') }}">Create one</a>.</td></tr>{% endfor %}</table></div>
+{% endblock %}

@@ -12,12 +12,14 @@
 <form method="post" class="card"><h2>Record payment</h2><input type="hidden" name="action" value="payment"><div class="grid">
 <div><label>Against charge</label><select name="charge_id"><option value="">— manual / advance —</option>{% for c in charges if c.status!='paid' %}<option value="{{ c.id }}">{{ c.fee_type }} · due {{ (c.amount-c.paid)|inr }}</option>{% endfor %}</select></div>
 <div><label>Amount ₹ *</label><input name="amount" type="number" step="any" required></div><div><label>Mode</label><select name="mode">{% for m in modes %}<option>{{ m }}</option>{% endfor %}</select></div>
-<div><label>Reference / UTR</label><input name="reference"></div><div><label>Paid on</label><input type="date" name="paid_on"></div></div>
-<p><button class="btn green">Record payment</button></p></form></div>
+<div><label>Reference / UTR</label><input name="reference"></div><div><label>Paid on</label><input type="date" name="paid_on"></div>
+<div style="grid-column:1/-1"><label>Description on receipt (optional)</label><input name="description" style="width:100%"></div></div>
+<p><label style="display:flex;gap:8px;align-items:center"><input type="checkbox" name="send_whatsapp" checked> 💬 Send receipt on WhatsApp</label></p>
+<p><button class="btn green">Record payment &amp; create receipt</button></p></form></div>
 <div class="card"><h2>Charges</h2><table><tr><th>Date</th><th>Type</th><th>Description</th><th class="right">Amount</th><th class="right">Paid</th><th>Due date</th><th>Status</th><th></th></tr>
 {% for c in charges %}<tr><td>{{ c.created_at|dt }}</td><td>{{ c.fee_type }}</td><td>{{ c.description or '' }}</td><td class="right">{{ c.amount|inr }}</td><td class="right">{{ c.paid|inr }}</td><td>{{ c.due_date|dt }}</td><td><span class="tag {{ c.status }}">{{ c.status }}</span></td><td>{% if c.status!="paid" %}<form method="post" action="{{ url_for('finance.remind', cid=c.id) }}"><button class="btn sm ghost">💬 Remind</button></form>{% endif %}</td></tr>
 {% else %}<tr><td colspan="8" class="muted">No charges yet.</td></tr>{% endfor %}</table></div>
 <div class="card"><h2>Payments</h2><table><tr><th>Receipt</th><th>Date</th><th class="right">Amount</th><th>Mode</th><th>Ref</th><th></th></tr>
-{% for p in payments %}<tr><td>{{ p.receipt_no }}</td><td>{{ p.paid_on|dt }}</td><td class="right">{{ p.amount|inr }}</td><td>{{ p.mode }}</td><td>{{ p.reference or '' }}</td><td><a href="{{ url_for('finance.receipt', pid=p.id) }}" target="_blank">Print receipt</a></td></tr>
+{% for p in payments %}<tr {% if p.cancelled %}style="opacity:.55"{% endif %}><td><a href="{{ url_for('finance.receipt', pid=p.id) }}">{{ p.receipt_no }}</a>{% if p.cancelled %} <span class="tag bad">cancelled</span>{% endif %}</td><td>{{ p.paid_on|dt }}</td><td class="right">{{ p.amount|inr }}</td><td>{{ p.mode }}</td><td>{{ p.reference or '' }}</td><td><a href="{{ url_for('finance.receipt', pid=p.id) }}">View / send receipt</a></td></tr>
 {% else %}<tr><td colspan="6" class="muted">No payments yet.</td></tr>{% endfor %}</table></div>
 {% endblock %}

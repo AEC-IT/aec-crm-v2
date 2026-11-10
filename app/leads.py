@@ -84,7 +84,7 @@ def dashboard():
     open_q = q.filter(Lead.status == "open")
     active = open_q.filter(~Lead.stage.in_(CONVERTED_STAGES)).count()
     converted = q.filter(Lead.stage.in_(CONVERTED_STAGES)).count()
-    revenue = db.session.query(func.coalesce(func.sum(Payment.amount), 0)).scalar()
+    revenue = db.session.query(func.coalesce(func.sum(Payment.amount), 0)).filter(Payment.cancelled.isnot(True)).scalar()
     today0 = datetime.combine(date.today(), datetime.min.time())
     overdue = open_q.filter(Lead.next_followup_at < now_ist()).order_by(Lead.next_followup_at).limit(10).all()
     due_today = open_q.filter(Lead.next_followup_at >= today0,

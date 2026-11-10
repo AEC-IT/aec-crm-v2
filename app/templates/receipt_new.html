@@ -1,0 +1,33 @@
+{% extends "base.html" %}{% block title %}New receipt{% endblock %}
+{% block content %}
+<h1>New receipt</h1><p class="sub">Record a payment and issue its receipt. The receipt number is given automatically.</p>
+{% if not lead %}
+<form class="card" style="max-width:560px"><label>Student *</label>
+ <input list="leadlist" id="leadpick" placeholder="Type name or phone…" style="width:100%" autofocus required>
+ <datalist id="leadlist">{% for l in leads %}<option value="{{ l.name }} · {{ l.phone }}" data-id="{{ l.id }}">{% endfor %}</datalist>
+ <input type="hidden" name="lead_id" id="leadid"><p><button class="btn">Continue</button></p></form>
+{% else %}
+<form method="post" class="card" style="max-width:720px"><input type="hidden" name="lead_id" value="{{ lead.id }}">
+ <p><b>{{ lead.name }}</b> · {{ lead.phone }} · {{ lead.course or '' }} {{ lead.country_preference or '' }}
+  {% if lead.balance_due > 0 %}<br><span class="small" style="color:var(--bad)">Balance due: {{ lead.balance_due|inr }}</span>{% endif %}
+  <a class="small" href="{{ url_for('finance.receipt_new') }}">change student</a></p>
+ <div class="grid">
+  <div><label>Against charge</label><select name="charge_id" id="charge" onchange="fillDue(this)"><option value="">— none (advance / other) —</option>
+   {% for c in charges %}<option value="{{ c.id }}" data-due="{{ c.amount - c.paid }}">{{ c.fee_type }} · due {{ (c.amount - c.paid)|inr }}</option>{% endfor %}</select></div>
+  <div><label>Amount ₹ *</label><input name="amount" id="amount" type="number" step="0.01" min="1" required></div>
+  <div><label>Payment mode</label><select name="mode">{% for m in modes %}<option>{{ m }}</option>{% endfor %}</select></div>
+  <div><label>Reference / UTR / cheque no.</label><input name="reference"></div>
+  <div><label>Date received</label><input type="date" name="paid_on" value="{{ today.isoformat() }}"></div>
+  <div style="grid-column:1/-1"><label>Description on receipt (optional)</label><input name="description" list="feetypes" style="width:100%" placeholder="e.g. Application Fee – Tbilisi State Medical University">
+   <datalist id="feetypes">{% for f in fee_types %}<option value="{{ f }}">{% endfor %}</datalist></div>
+ </div>
+ <p><label style="display:flex;gap:8px;align-items:center;font-size:14px"><input type="checkbox" name="send_whatsapp" checked> 💬 Send the receipt to {{ lead.name.split()[0] }} on WhatsApp ({{ lead.whatsapp or lead.phone }})</label></p>
+ <button class="btn green">Save &amp; create receipt</button> <a class="btn ghost" href="{{ url_for('finance.receipts') }}">Cancel</a>
+</form>
+{% endif %}
+{% endblock %}
+{% block scripts %}<script>
+const pick=document.getElementById('leadpick');if(pick){pick.form.addEventListener('submit',e=>{const o=[...document.querySelectorAll('#leadlist option')].find(o=>o.value===pick.value);
+ if(!o){e.preventDefault();alert('Pick a student from the list');return}document.getElementById('leadid').value=o.dataset.id;});}
+function fillDue(s){const d=s.selectedOptions[0].dataset.due;if(d)document.getElementById('amount').value=(+d).toFixed(2);}
+</script>{% endblock %}

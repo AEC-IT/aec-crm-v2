@@ -79,7 +79,7 @@ def sources():
 @requires("reports")
 def monthly():
     leads = Lead.query.with_entities(Lead.created_at, Lead.stage).all()
-    pays = Payment.query.with_entities(Payment.paid_on, Payment.amount).all()
+    pays = Payment.query.filter(Payment.cancelled.isnot(True)).with_entities(Payment.paid_on, Payment.amount).all()
     months = {}
     for created, stage in leads:
         k = created.strftime("%Y-%m")

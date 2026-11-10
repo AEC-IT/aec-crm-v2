@@ -86,6 +86,8 @@ dl.kv{display:grid;grid-template-columns:140px 1fr;gap:4px 10px;margin:0}dl.kv d
   {% if current_user.can('finance') %}
   <h6>Finance</h6>
   <a href="{{ url_for('finance.dashboard') }}">Payments Dashboard</a>
+  <a href="{{ url_for('finance.receipts') }}">Receipts</a>
+  <a href="{{ url_for('finance.receipt_new') }}">+ New Receipt</a>
   <a href="{{ url_for('finance.payments') }}">Payment Records</a>
   <a href="{{ url_for('finance.charges') }}">Service Charges</a>
   {% endif %}

@@ -169,3 +169,47 @@ def test_phase2():
 
 if __name__ == "__main__":
     test_phase2()
+
+
+def test_receipts():
+    app = make()
+    app.config.update(SERVER_NAME="crm.test")
+    cl = app.test_client()
+    login(cl)
+    cl.post("/leads/new", data={"name": "Ayisha Nesrin", "phone": "7012032235", "course": "BBA", "country_preference": "Spain"})
+    with app.app_context():
+        lead = Lead.query.first(); lid, tok = lead.id, lead.portal_token
+    cl.post(f"/finance/lead/{lid}", data={"action": "charge", "fee_type": "Application Fee", "amount": "100000"})
+    # quick receipt against the charge, with WhatsApp send ticked
+    r = cl.post("/finance/receipts/new", data={"lead_id": lid, "charge_id": "1", "amount": "25500.50", "mode": "UPI",
+                                               "reference": "UTR123", "paid_on": "2026-11-10", "send_whatsapp": "on"})
+    assert r.status_code == 302 and "send=1" in r.headers["Location"]
+    r = cl.get(r.headers["Location"], follow_redirects=True)
+    assert b"AEC/2026-27/00001" in r.data and b"Twenty Five Thousand Five Hundred and Fifty Paise" in r.data
+    assert b"not configured" in r.data and b"Open in WhatsApp" in r.data and b"wa.me/917012032235" in r.data
+    with app.app_context():
+        from app.models import WhatsAppMessage, Payment
+        assert "Receipt AEC/2026-27/00001" in WhatsAppMessage.query.first().body
+        assert db.session.get(Lead, lid).balance_due == 100000 - 25500.50
+    # second receipt numbers on; public link works without login, wrong token 404
+    cl.post(f"/finance/lead/{lid}", data={"action": "payment", "amount": "1000", "mode": "Cash", "paid_on": "2026-11-10"})
+    assert b"AEC/2026-27/00002" in cl.get("/finance/receipts").data
+    pub = app.test_client()
+    assert pub.get(f"/finance/r/{tok}/1").status_code == 200
+    assert pub.get("/finance/r/wrongtoken/1").status_code == 404
+    assert b"Send on WhatsApp" not in pub.get(f"/finance/r/{tok}/1").data
+    # cancel: stays listed, stops counting
+    assert cl.post("/finance/receipt/1/cancel", data={"reason": ""}).status_code == 302
+    cl.post("/finance/receipt/1/cancel", data={"reason": "Wrong amount"})
+    with app.app_context():
+        assert db.session.get(Lead, lid).balance_due == 100000
+    assert b"CANCELLED" in cl.get("/finance/receipt/1").data
+    for p in ["/finance/receipts", "/finance/receipts?export=csv", "/finance/receipts/new", f"/finance/receipts/new?lead_id={lid}",
+              "/finance/dashboard", "/finance/payments", f"/finance/lead/{lid}", f"/leads/{lid}", "/"]:
+        assert cl.get(p).status_code == 200, p
+    # FY numbering: before April belongs to previous year
+    with app.app_context():
+        from app.services import next_receipt_no
+        from datetime import date
+        assert next_receipt_no(date(2027, 3, 31)).startswith("AEC/2026-27/") and next_receipt_no(date(2027, 4, 1)) == "AEC/2027-28/00001"
+    print("RECEIPTS OK")

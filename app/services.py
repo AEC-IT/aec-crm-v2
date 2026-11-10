@@ -119,10 +119,15 @@ def new_token():
     return secrets.token_urlsafe(24)
 
 
-def next_receipt_no():
+def next_receipt_no(on=None):
+    """AEC/2026-27/00001 — numbered per Indian financial year (April–March), never reused."""
     from .models import Payment
-    n = Payment.query.count() + 1
-    return f"AEC/{now_ist():%Y}/{n:05d}"
+    d = on or now_ist().date()
+    fy = f"{d.year}-{(d.year + 1) % 100:02d}" if d.month >= 4 else f"{d.year - 1}-{d.year % 100:02d}"
+    prefix = f"AEC/{fy}/"
+    last = [int(r[0].rsplit("/", 1)[1]) for r in Payment.query.with_entities(Payment.receipt_no)
+            .filter(Payment.receipt_no.like(prefix + "%")).all() if r[0].rsplit("/", 1)[1].isdigit()]
+    return f"{prefix}{(max(last) + 1 if last else 1):05d}"
 
 
 def upi_link(amount, note):
@@ -180,3 +185,32 @@ def serve_upload(fn):
     if os.path.exists(os.path.join(current_app.config["UPLOAD_FOLDER"], fn)):
         return send_from_directory(current_app.config["UPLOAD_FOLDER"], fn)
     abort(404)
+
+
+_ONES = ["", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten", "Eleven", "Twelve",
+         "Thirteen", "Fourteen", "Fifteen", "Sixteen", "Seventeen", "Eighteen", "Nineteen"]
+_TENS = ["", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety"]
+
+
+def _two(n):
+    return _ONES[n] if n < 20 else (_TENS[n // 10] + (" " + _ONES[n % 10] if n % 10 else ""))
+
+
+def _three(n):
+    h, r = divmod(n, 100)
+    return ((_ONES[h] + " Hundred" + (" " if r else "")) if h else "") + (_two(r) if r else "")
+
+
+def amount_in_words(amount):
+    """1,25,500.50 -> 'Rupees One Lakh Twenty Five Thousand Five Hundred and Fifty Paise Only'."""
+    amount = round(float(amount or 0), 2)
+    rupees, paise = int(amount), int(round((amount - int(amount)) * 100))
+    parts = []
+    for div, name in ((10**7, "Crore"), (10**5, "Lakh"), (1000, "Thousand")):
+        q, rupees = divmod(rupees, div)
+        if q:
+            parts.append((amount_in_words(q).replace("Rupees ", "").replace(" Only", "") if q >= 100 else _two(q)) + " " + name)
+    if rupees:
+        parts.append(_three(rupees))
+    words = " ".join(parts) or "Zero"
+    return "Rupees " + words + (f" and {_two(paise)} Paise" if paise else "") + " Only"

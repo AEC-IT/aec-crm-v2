@@ -298,7 +298,7 @@ class Charge(db.Model, TimeStamped):
 
     @property
     def paid(self):
-        return sum(p.amount for p in self.payments)
+        return sum(p.amount for p in self.payments if not p.cancelled)
 
     @property
     def status(self):
@@ -315,7 +315,19 @@ class Payment(db.Model, TimeStamped):
     paid_on = db.Column(db.Date, default=date.today)
     receipt_no = db.Column(db.String(30), unique=True)
     recorded_by_id = db.Column(db.Integer, db.ForeignKey("user.id"))
+    description = db.Column(db.String(255))   # what the payment is for, printed on the receipt
+    cancelled = db.Column(db.Boolean, default=False)
+    cancel_reason = db.Column(db.String(255))
     lead = db.relationship("Lead")
+    recorded_by = db.relationship("User")
+
+    @property
+    def purpose(self):
+        if self.description:
+            return self.description
+        if self.charge:
+            return self.charge.fee_type + (f" — {self.charge.description}" if self.charge.description else "")
+        return "Advance / service payment"
 
 
 class Brochure(db.Model, TimeStamped):

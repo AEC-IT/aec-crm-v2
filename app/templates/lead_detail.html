@@ -7,7 +7,7 @@
  <div class="noprint">
   <a class="btn ghost" href="{{ url_for('leads.form', lid=lead.id) }}">Edit</a>
   {% if current_user.can('documents') %}<a class="btn ghost" href="{{ url_for('modules.lead_documents', lid=lead.id) }}">📂 Documents</a>{% endif %}
-  {% if current_user.can('finance') %}<a class="btn ghost" href="{{ url_for('finance.lead_charges', lid=lead.id) }}">💳 Charges</a>{% endif %}
+  {% if current_user.can('finance') %}<a class="btn ghost" href="{{ url_for('finance.lead_charges', lid=lead.id) }}">💳 Charges</a> <a class="btn ghost" href="{{ url_for('finance.receipt_new', lead_id=lead.id) }}">🧾 Receipt</a>{% endif %}
  </div></div>
 
 {% if dups %}<div class="card" style="border-color:var(--warn)"><b>⚠ Possible duplicates:</b>

@@ -1,10 +1,74 @@
-<!doctype html><html><head><meta charset="utf-8"><title>Receipt {{ p.receipt_no }}</title>
-<style>body{font:14px/1.5 system-ui,sans-serif;max-width:640px;margin:30px auto;color:#16202e}h1{margin:0;font-size:20px}.box{border:1px solid #ccc;border-radius:8px;padding:24px}
-td{padding:6px 0}.amt{font-size:26px;font-weight:700}@media print{button{display:none}}</style></head><body>
-<div class="box"><div style="display:flex;justify-content:space-between"><div><h1>AEC Studies Pvt. Ltd.</h1><div>2nd Floor, Kollanur Plaza, Nettipadam Road, Ernakulam – 682 016</div><div>+91 95269 90444 · info@aec-edu.com</div></div>
-<div style="text-align:right"><b>PAYMENT RECEIPT</b><div>{{ p.receipt_no }}</div><div>{{ p.paid_on.strftime('%d %b %Y') if p.paid_on else '' }}</div></div></div><hr>
-<table style="width:100%"><tr><td>Received from</td><td><b>{{ p.lead.name if p.lead else '' }}</b> ({{ p.lead.phone if p.lead else '' }})</td></tr>
-<tr><td>Towards</td><td>{{ p.charge.fee_type if p.charge else 'Advance / manual payment' }}{% if p.charge and p.charge.description %} — {{ p.charge.description }}{% endif %}</td></tr>
-<tr><td>Mode</td><td>{{ p.mode }}{% if p.reference %} · Ref {{ p.reference }}{% endif %}</td></tr></table>
-<p class="amt">₹ {{ '{:,.2f}'.format(p.amount) }}</p><p style="margin-top:50px;text-align:right">Authorised signatory</p></div>
-<p><button onclick="print()">Print / Save PDF</button></p></body></html>
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Receipt {{ p.receipt_no }} · {{ company }}</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box}body{margin:0;font:14px/1.5 Inter,system-ui,sans-serif;background:#eef1f5;color:#16202e}
+.bar{max-width:760px;margin:16px auto 0;padding:0 16px;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.btn{display:inline-flex;align-items:center;gap:6px;border:0;border-radius:8px;padding:9px 14px;font:inherit;font-weight:600;cursor:pointer;text-decoration:none;color:#fff;background:#0b5cad}
+.btn.wa{background:#1fa855}.btn.ghost{background:#fff;color:#16202e;border:1px solid #cfd4dc}.btn.red{background:#fff;color:#c4321b;border:1px solid #f1b6ad}
+.flash{max-width:760px;margin:12px auto 0;padding:10px 14px;border-radius:8px}.flash.ok{background:#e7f6ef;color:#12805c}.flash.error{background:#fdecea;color:#c4321b}
+.paper{max-width:760px;margin:16px auto 30px;background:#fff;border-radius:10px;box-shadow:0 2px 12px rgba(0,0,0,.08);padding:36px 40px;position:relative;overflow:hidden}
+.top{display:flex;justify-content:space-between;gap:20px;border-bottom:3px solid #0b5cad;padding-bottom:16px}
+.co{font-size:20px;font-weight:700;color:#0b2f5c}.muted{color:#667085;font-size:12.5px}
+.title{text-align:right}.title b{font-size:18px;letter-spacing:.06em;color:#0b5cad}
+.meta{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin:22px 0}
+.meta h4{margin:0 0 4px;font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:#667085}
+table{width:100%;border-collapse:collapse;margin-top:6px}th,td{text-align:left;padding:10px;border-bottom:1px solid #e4e7ec}
+th{background:#f5f7fa;font-size:11.5px;text-transform:uppercase;letter-spacing:.05em;color:#475467}.r{text-align:right}
+.total td{font-weight:700;font-size:16px;border-bottom:2px solid #16202e}
+.words{margin:14px 0;padding:10px 12px;background:#f5f7fa;border-radius:6px;font-style:italic}
+.foot{display:flex;justify-content:space-between;align-items:flex-end;margin-top:40px;gap:20px}
+.sign{text-align:center;min-width:200px}.sign div{border-top:1px solid #16202e;padding-top:4px;margin-top:46px;font-size:12.5px}
+.void{position:absolute;top:40%;left:50%;transform:translate(-50%,-50%) rotate(-24deg);font-size:96px;font-weight:800;color:rgba(196,50,27,.15);letter-spacing:.1em;pointer-events:none}
+.cancel{max-width:760px;margin:0 auto 30px;padding:0 16px}.cancel details{background:#fff;border-radius:8px;padding:10px 14px}
+.cancel input{padding:7px 10px;border:1px solid #cfd4dc;border-radius:7px;width:60%;font:inherit}
+@media (max-width:600px){.paper{padding:22px 18px}.top,.meta,.foot{grid-template-columns:1fr;flex-direction:column}.title{text-align:left}}
+@media print{body{background:#fff}.bar,.flash,.cancel{display:none!important}.paper{box-shadow:none;margin:0;max-width:none}}
+</style></head><body>
+{% if not public %}
+<div class="bar">
+ <a class="btn ghost" href="{{ url_for('finance.receipts') }}">← Receipts</a>
+ <button class="btn" onclick="print()">🖨 Print / Save PDF</button>
+ {% if p.lead and not p.cancelled %}
+ <form method="post" action="{{ url_for('finance.receipt_whatsapp', pid=p.id) }}" style="display:inline"><button class="btn wa">💬 Send on WhatsApp</button></form>
+ {% if wa_me %}<a class="btn ghost" href="{{ wa_me }}" target="_blank" rel="noopener">Open in WhatsApp</a>{% endif %}
+ <button class="btn ghost" onclick="navigator.clipboard.writeText({{ link|tojson }});this.textContent='Link copied ✓'">Copy student link</button>
+ {% endif %}
+ {% if p.lead %}<a class="btn ghost" href="{{ url_for('leads.detail', lid=p.lead_id) }}">Open lead</a>{% endif %}
+</div>
+{% for cat,msg in get_flashed_messages(with_categories=true) %}<div class="flash {{ cat }}">{{ msg }}</div>{% endfor %}
+{% endif %}
+<div class="paper">
+ {% if p.cancelled %}<div class="void">CANCELLED</div>{% endif %}
+ <div class="top">
+  <div><div class="co">{{ company }}</div>
+   <div class="muted">{{ branch.address if branch and branch.address else '' }}</div>
+   <div class="muted">{{ branch.phone if branch and branch.phone else '' }}{% if branch and branch.email %} · {{ branch.email }}{% endif %}</div>
+   {% if gstin %}<div class="muted">GSTIN: {{ gstin }}</div>{% endif %}</div>
+  <div class="title"><b>PAYMENT RECEIPT</b><div style="font-weight:600;margin-top:4px">{{ p.receipt_no }}</div>
+   <div class="muted">Date: {{ p.paid_on.strftime('%d %b %Y') if p.paid_on else '' }}</div></div>
+ </div>
+ <div class="meta">
+  <div><h4>Received from</h4><b>{{ p.lead.name if p.lead else '' }}</b>
+   {% if p.lead %}<div class="muted">{{ p.lead.phone }}{% if p.lead.email %} · {{ p.lead.email }}{% endif %}</div>
+   {% if p.lead.parent_name %}<div class="muted">Parent: {{ p.lead.parent_name }}</div>{% endif %}{% endif %}</div>
+  <div><h4>Programme</h4>{{ (p.lead.course or '—') if p.lead else '—' }}{% if p.lead and p.lead.country_preference %} · {{ p.lead.country_preference }}{% endif %}
+   {% if p.lead and p.lead.intended_intake %}<div class="muted">Intake: {{ p.lead.intended_intake }}</div>{% endif %}</div>
+ </div>
+ <table><tr><th>Description</th><th>Payment mode</th><th class="r">Amount (₹)</th></tr>
+  <tr><td>{{ p.purpose }}</td><td>{{ p.mode or '—' }}{% if p.reference %}<div class="muted">Ref / UTR: {{ p.reference }}</div>{% endif %}</td><td class="r">{{ '{:,.2f}'.format(p.amount) }}</td></tr>
+  <tr class="total"><td colspan="2">Total received</td><td class="r">₹ {{ '{:,.2f}'.format(p.amount) }}</td></tr></table>
+ <div class="words">{{ words }}</div>
+ {% if balance and balance > 0 and not p.cancelled %}<div class="muted">Balance still due on your account: <b style="color:#c4321b">₹ {{ '{:,.0f}'.format(balance) }}</b></div>{% endif %}
+ {% if p.cancelled %}<div style="color:#c4321b;margin-top:8px"><b>This receipt was cancelled.</b> Reason: {{ p.cancel_reason }}</div>{% endif %}
+ <div class="foot">
+  <div class="muted">Received by: {{ p.recorded_by.name if p.recorded_by else '' }}<br>This is a computer-generated receipt.<br>Thank you for choosing {{ company }}.</div>
+  <div class="sign"><div>Authorised signatory</div></div>
+ </div>
+</div>
+{% if not public and not p.cancelled %}
+<div class="cancel"><details><summary class="muted">Cancel this receipt (wrong entry, bounced cheque…)</summary>
+ <form method="post" action="{{ url_for('finance.receipt_cancel', pid=p.id) }}" style="margin-top:8px" onsubmit="return confirm('Cancel receipt {{ p.receipt_no }}? It stays on record but stops counting as paid.')">
+  <input name="reason" placeholder="Reason" required> <button class="btn red">Cancel receipt</button></form></details></div>
+{% endif %}
+</body></html>

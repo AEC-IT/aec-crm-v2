@@ -28,6 +28,8 @@ def create_app(config=None):
         WHATSAPP_TOKEN=os.environ.get("WHATSAPP_TOKEN"),
         WHATSAPP_PHONE_ID=os.environ.get("WHATSAPP_PHONE_ID"),
         UPI_ID=os.environ.get("UPI_ID"),
+        COMPANY_NAME=os.environ.get("COMPANY_NAME", "AEC Studies Pvt. Ltd."),
+        COMPANY_GSTIN=os.environ.get("COMPANY_GSTIN", ""),
         UPI_NAME=os.environ.get("UPI_NAME", "AEC Studies Pvt Ltd"),
         WHATSAPP_VERIFY_TOKEN=os.environ.get("WHATSAPP_VERIFY_TOKEN", "aec-verify"),
     )
@@ -103,7 +105,26 @@ def create_app(config=None):
 
     with app.app_context():
         db.create_all()
+        add_missing_columns()
     return app
+
+
+def add_missing_columns():
+    """Add any model column the live table lacks (new features on an existing database). Never drops anything."""
+    from sqlalchemy import inspect, text
+    insp = inspect(db.engine)
+    for table in db.metadata.sorted_tables:
+        if not insp.has_table(table.name):
+            continue
+        have = {c["name"] for c in insp.get_columns(table.name)}
+        for col in table.columns:
+            if col.name not in have:
+                ddl = col.type.compile(dialect=db.engine.dialect)
+                try:
+                    db.session.execute(text(f'ALTER TABLE "{table.name}" ADD COLUMN "{col.name}" {ddl}'))
+                    db.session.commit()
+                except Exception:  # another worker added it a moment earlier
+                    db.session.rollback()
 
 
 @login_manager.user_loader
