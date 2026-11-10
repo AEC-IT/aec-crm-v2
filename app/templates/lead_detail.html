@@ -2,7 +2,7 @@
 {% block content %}
 <div class="head"><div>
  <h1>{{ lead.name }} <span class="tag {{ lead.temperature }}">{{ lead.temperature|capitalize }} · {{ lead.score }}</span> {% if lead.status!='open' %}<span class="tag lost">{{ lead.status }}</span>{% endif %}</h1>
- <p class="sub" style="margin:0"><a href="tel:{{ lead.phone }}">📞 {{ lead.phone }}</a> · <a href="{{ url_for('comms.thread', phone=lead.whatsapp or lead.phone) }}">💬 WhatsApp</a>
+ <p class="sub" style="margin:0"><a href="tel:{{ lead.phone }}">📞 {{ lead.phone }}</a> · <a href="#chat" onclick="openChat();return false;" class="btn sm green" style="color:#fff">💬 WhatsApp chat</a>
  {% if lead.email %} · <a href="mailto:{{ lead.email }}">✉ {{ lead.email }}</a>{% endif %} · {{ lead.course or 'Course ?' }} · {{ lead.country_preference or 'Country ?' }}</p></div>
  <div class="noprint">
   <a class="btn ghost" href="{{ url_for('leads.form', lid=lead.id) }}">Edit</a>
@@ -78,8 +78,54 @@
  {% if current_user.can('admin') %}<form method="post" action="{{ url_for('leads.delete', lid=lead.id) }}" onsubmit="return confirm('Permanently delete this lead and all its history?')" class="noprint">
   <button formaction="{{ url_for('leads.set_status', lid=lead.id, status='archived') }}" class="btn sm ghost">Archive</button> <button class="btn sm red">Delete</button></form>{% endif %}
 </div></div>
+<div id="chatOverlay" class="chat-overlay" onclick="closeChat()"></div>
+<aside id="chatPanel" class="chat-panel" aria-label="WhatsApp chat">
+ <header class="chat-head"><div><b>{{ lead.name }}</b><div class="small" style="opacity:.8">{{ lead.whatsapp or lead.phone }}</div></div>
+  <button type="button" class="chat-x" onclick="closeChat()" aria-label="Close">✕</button></header>
+ <div id="chatMsgs" class="chat-body"><div class="chat-empty">Loading…</div></div>
+ <div id="chatNote" class="chat-note" hidden>More than 24 hours since {{ lead.name.split()[0] }} last messaged — WhatsApp only allows an approved template now.</div>
+ <form id="chatForm" class="chat-foot" onsubmit="sendChat(event)">
+  <textarea name="body" rows="1" placeholder="Type a message" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();this.form.requestSubmit();}"></textarea>
+  <button class="btn green" aria-label="Send">➤</button></form>
+ <form class="chat-tpl" onsubmit="sendTpl(event)"><select name="template_id" required><option value="">Send a template…</option>
+  {% for t in wa_templates %}<option value="{{ t.id }}">{{ t.category }} — {{ t.title }}</option>{% endfor %}</select><button class="btn sm ghost">Send</button></form>
+ <div id="chatErr" class="chat-err" hidden></div>
+</aside>
 {% endblock %}
-{% block scripts %}<script>async function tplPreview(id){const b=document.getElementById('tplprev');if(!id){b.style.display='none';return}
+{% block head %}<style>
+.chat-overlay{position:fixed;inset:0;background:rgba(15,27,45,.35);display:none;z-index:40}
+.chat-panel{position:fixed;top:0;right:-440px;width:420px;max-width:100vw;height:100vh;background:#efeae2;z-index:41;display:flex;flex-direction:column;transition:right .2s;box-shadow:-4px 0 20px rgba(0,0,0,.15)}
+.chat-open .chat-panel{right:0}.chat-open .chat-overlay{display:block}
+.chat-head{background:#075e54;color:#fff;padding:12px 14px;display:flex;justify-content:space-between;align-items:center}
+.chat-x{background:none;border:0;color:#fff;font-size:18px;cursor:pointer}
+.chat-body{flex:1;overflow-y:auto;padding:12px 10px}
+.chat-row{display:flex;margin:3px 0}.chat-row.out{justify-content:flex-end}
+.chat-bubble{max-width:80%;padding:6px 9px 4px;border-radius:8px;background:#fff;white-space:pre-wrap;word-wrap:break-word;font-size:14px;box-shadow:0 1px 1px rgba(0,0,0,.08)}
+.chat-row.out .chat-bubble{background:#d9fdd3}
+.chat-time{display:block;text-align:right;font-size:10.5px;color:#667085;margin-top:2px}
+.chat-day{text-align:center;margin:10px 0}.chat-day span{background:#e1f2fb;color:#475467;font-size:11.5px;padding:3px 10px;border-radius:7px}
+.chat-empty{text-align:center;color:#667085;margin-top:40%;font-size:13.5px}
+.chat-note{background:#fef3e6;color:#b54708;font-size:12.5px;padding:7px 12px}
+.chat-foot{display:flex;gap:6px;padding:8px;background:#f0f2f5}.chat-foot textarea{flex:1;min-height:38px;max-height:120px;resize:none;border-radius:18px;padding:9px 12px}
+.chat-tpl{display:flex;gap:6px;padding:0 8px 8px;background:#f0f2f5}.chat-tpl select{flex:1}
+.chat-err{background:#fdecea;color:#c4321b;font-size:12.5px;padding:7px 12px}
+</style>{% endblock %}
+{% block scripts %}<script>
+const CHAT_URL='{{ url_for("comms.lead_chat", lid=lead.id) }}', TPL_URL='{{ url_for("comms.send_template", lid=lead.id) }}';
+let chatTimer=null;
+async function loadChat(scroll){const box=document.getElementById('chatMsgs');const atEnd=box.scrollHeight-box.scrollTop-box.clientHeight<60;
+ box.innerHTML=await (await fetch(CHAT_URL)).text();
+ const w=box.querySelector('#chat-window');document.getElementById('chatNote').hidden=!w||w.dataset.open==='1'||!box.querySelector('.chat-row');
+ if(scroll||atEnd)box.scrollTop=box.scrollHeight;}
+function openChat(){document.body.classList.add('chat-open');loadChat(true);clearInterval(chatTimer);chatTimer=setInterval(()=>loadChat(false),10000);history.replaceState(null,'','#chat');}
+function closeChat(){document.body.classList.remove('chat-open');clearInterval(chatTimer);history.replaceState(null,'',location.pathname);}
+function showErr(t){const e=document.getElementById('chatErr');e.textContent=t||'';e.hidden=!t;}
+async function sendChat(ev){ev.preventDefault();const f=ev.target;if(!f.body.value.trim())return;
+ const r=await (await fetch(CHAT_URL,{method:'POST',body:new FormData(f)})).json();f.body.value='';showErr(r.ok?'':r.info);loadChat(true);}
+async function sendTpl(ev){ev.preventDefault();await fetch(TPL_URL,{method:'POST',body:new FormData(ev.target)});ev.target.reset();showErr('');loadChat(true);}
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeChat();});
+if(location.hash==='#chat')openChat();
+async function tplPreview(id){const b=document.getElementById('tplprev');if(!id){b.style.display='none';return}
 b.textContent=await (await fetch('/whatsapp/preview/{{ lead.id }}/'+id)).text();b.style.display='block';}
 function setFU(d){const t=new Date(Date.now()+d*864e5);t.setHours(10,0,0,0);
 const p=n=>String(n).padStart(2,'0');document.querySelector('[name=next_followup_at]').value=`${t.getFullYear()}-${p(t.getMonth()+1)}-${p(t.getDate())}T10:00`;}</script>{% endblock %}

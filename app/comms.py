@@ -159,3 +159,39 @@ def webhook():
                 notify(lead.assigned_to_id, f"WhatsApp from {lead.name}", f"/whatsapp/{phone}")
     db.session.commit()
     return "ok"
+
+
+# ------------------------------------------------------------------ chat panel on the lead page
+def lead_messages(lead):
+    """All WhatsApp messages for a lead: linked by lead id, or sent from/to any of its numbers."""
+    phones = {p for p in (lead.phone, lead.whatsapp, normalize_phone(lead.phone), normalize_phone(lead.whatsapp)) if p}
+    return (WhatsAppMessage.query
+            .filter((WhatsAppMessage.lead_id == lead.id) | (WhatsAppMessage.phone.in_(phones)))
+            .order_by(WhatsAppMessage.created_at, WhatsAppMessage.id).all())
+
+
+@bp.route("/leads/<int:lid>/chat", methods=["GET", "POST"])
+@requires("leads")
+def lead_chat(lid):
+    """GET: the chat messages as an HTML fragment (the panel refreshes it). POST: send a reply."""
+    from .leads import get_lead
+    lead = get_lead(lid)
+    phone = normalize_phone(lead.whatsapp or lead.phone)
+    if request.method == "POST":
+        body = (request.form.get("body") or "").strip()
+        if body:
+            ok, info = send_whatsapp(phone, body)
+            db.session.add(WhatsAppMessage(lead_id=lead.id, phone=phone, direction="out", body=body, read=True))
+            log(lead, body + ("" if ok else f"\n⚠ {info}"), "whatsapp", current_user)
+            lead.last_contacted_at = now_ist()
+            db.session.commit()
+            if not ok:
+                return {"ok": False, "info": info}
+        return {"ok": True}
+    msgs = lead_messages(lead)
+    for m in msgs:
+        if m.direction == "in" and not m.read:
+            m.read = True
+    db.session.commit()
+    return render_template("_chat_messages.html", msgs=msgs, lead=lead,
+                           in_window=in_service_window(phone))

@@ -1,0 +1,9 @@
+{% set ns = namespace(day=None) %}
+{% for m in msgs %}
+ {% set d = m.created_at.strftime('%d %b %Y') %}
+ {% if d != ns.day %}<div class="chat-day"><span>{{ d }}</span></div>{% set ns.day = d %}{% endif %}
+ <div class="chat-row {{ 'out' if m.direction=='out' else 'in' }}"><div class="chat-bubble">{{ m.body }}<span class="chat-time">{{ m.created_at.strftime('%H:%M') }}{{ ' ✓✓' if m.direction=='out' }}</span></div></div>
+{% else %}
+ <div class="chat-empty">No WhatsApp messages with {{ lead.name }} yet.<br>Send a template below to start the conversation.</div>
+{% endfor %}
+<div id="chat-window" data-open="{{ '1' if in_window else '0' }}" hidden></div>

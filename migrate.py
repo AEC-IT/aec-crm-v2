@@ -71,7 +71,7 @@ def get(row, field):
 def parse_dt(v):
     if isinstance(v, (datetime, date)):
         return v if isinstance(v, datetime) else datetime.combine(v, datetime.min.time())
-    for fmt in ("%Y-%m-%d %H:%M:%S.%f", "%Y-%m-%d %H:%M:%S", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d", "%d/%m/%Y", "%d-%m-%Y", "%d %b %Y", "%d %b %Y, %I:%M %p"):
+    for fmt in ("%Y-%m-%d %H:%M:%S.%f", "%Y-%m-%d %H:%M:%S", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d", "%d/%m/%Y", "%d-%m-%Y", "%d %b %Y", "%d %b %Y, %I:%M %p", "%d %b %Y %H:%M", "%Y-%m-%dT%H:%M:%S.%f", "%Y-%m-%dT%H:%M:%SZ"):
         try:
             return datetime.strptime(str(v).strip(), fmt)
         except ValueError:
@@ -186,6 +186,29 @@ def import_payments(rows, dry):
         db.session.flush()
         n += 1
     print(f"Payments: {n} imported")
+    (db.session.rollback if dry else db.session.commit)()
+
+
+def import_whatsapp(rows, dry):
+    """rows: phone, direction (in/out), body, created_at. Linked to the lead with that number; repeats skipped."""
+    from app.models import WhatsAppMessage
+    from sqlalchemy import or_
+    n = dup = 0
+    for r in rows:
+        phone = normalize_phone(r.get("phone"))
+        body = (r.get("body") or "").strip()
+        if not (phone and body):
+            continue
+        when = parse_dt(r.get("created_at")) or now_ist()
+        if WhatsAppMessage.query.filter_by(phone=phone, body=body, created_at=when).first():
+            dup += 1
+            continue
+        lead = Lead.query.filter(or_(Lead.whatsapp == phone, Lead.phone == phone)).first()
+        db.session.add(WhatsAppMessage(lead_id=lead.id if lead else None, phone=phone, body=body,
+                                       direction="out" if (r.get("direction") or "").lower().startswith("o") else "in",
+                                       created_at=when, read=True))
+        n += 1
+    print(f"WhatsApp: {n} messages imported, {dup} already there")
     (db.session.rollback if dry else db.session.commit)()
 
 

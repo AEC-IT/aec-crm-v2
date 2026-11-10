@@ -3,6 +3,6 @@
 <h1>Import from old CRM</h1><p class="sub">Upload a CSV export. Same phone number = merged into the existing lead; duplicate universities are skipped.</p>
 {% if out %}<pre class="card" style="white-space:pre-wrap">{{ out }}</pre>{% endif %}
 <form method="post" enctype="multipart/form-data" class="card filters">
-<select name="kind"><option value="leads">Leads</option><option value="universities">Universities</option><option value="payments">Payments</option></select>
+<select name="kind"><option value="leads">Leads</option><option value="universities">Universities</option><option value="payments">Payments</option><option value="whatsapp">WhatsApp messages</option></select>
 <input type="file" name="file" accept=".csv" required><label><input type="checkbox" name="dry"> Test only (don't save)</label><button class="btn">Import</button></form>
 {% endblock %}

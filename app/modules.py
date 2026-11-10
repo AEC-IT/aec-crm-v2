@@ -382,7 +382,7 @@ def import_data():
         buf = io.StringIO()
         with contextlib.redirect_stdout(buf):
             {"leads": migrate.import_leads, "universities": migrate.import_universities,
-             "payments": migrate.import_payments}[kind](rows, bool(request.form.get("dry")))
+             "payments": migrate.import_payments, "whatsapp": migrate.import_whatsapp}[kind](rows, bool(request.form.get("dry")))
         out = buf.getvalue() or "Done"
         if request.form.get("api"):
             return out
