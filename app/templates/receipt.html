@@ -62,7 +62,7 @@ th{background:#f5f7fa;font-size:11.5px;text-transform:uppercase;letter-spacing:.
  {% if balance and balance > 0 and not p.cancelled %}<div class="muted">Balance still due on your account: <b style="color:#c4321b">₹ {{ '{:,.0f}'.format(balance) }}</b></div>{% endif %}
  {% if p.cancelled %}<div style="color:#c4321b;margin-top:8px"><b>This receipt was cancelled.</b> Reason: {{ p.cancel_reason }}</div>{% endif %}
  <div class="foot">
-  <div class="muted">Received by: {{ p.recorded_by.name if p.recorded_by else '' }}<br>This is a computer-generated receipt.<br>Thank you for choosing {{ company }}.</div>
+  <div class="muted">Received by: {{ p.recorded_by.name if p.recorded_by else '' }}<br>This is a computer-generated receipt.<br>Thank you for choosing {{ company.rstrip(".") }}.</div>
   <div class="sign"><div>Authorised signatory</div></div>
  </div>
 </div>
