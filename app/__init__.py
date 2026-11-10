@@ -29,7 +29,7 @@ def create_app(config=None):
         WHATSAPP_PHONE_ID=os.environ.get("WHATSAPP_PHONE_ID"),
         UPI_ID=os.environ.get("UPI_ID"),
         COMPANY_NAME=os.environ.get("COMPANY_NAME", "AEC Studies Pvt. Ltd."),
-        COMPANY_GSTIN=os.environ.get("COMPANY_GSTIN", ""),
+        COMPANY_GSTIN=os.environ.get("COMPANY_GSTIN", "32AAMCA4317K1ZQ"),
         UPI_NAME=os.environ.get("UPI_NAME", "AEC Studies Pvt Ltd"),
         WHATSAPP_VERIFY_TOKEN=os.environ.get("WHATSAPP_VERIFY_TOKEN", "aec-verify"),
     )
