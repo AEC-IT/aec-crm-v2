@@ -243,8 +243,20 @@ def whatsapp_setup():
         st, token_info = _graph("GET", "me?fields=id,name")
         if pid:
             st, phone = _graph("GET", f"{pid}?fields=display_phone_number,verified_name,quality_rating,code_verification_status,platform_type,throughput,name_status")
-    waba_id = request.args.get("waba_id") or current_app.config.get("WHATSAPP_WABA_ID") or ""
+    waba_id = request.args.get("waba_id") or ""
+    found = []  # every WhatsApp account the token can see, with its numbers
+    if checks["token"]:
+        for biz in [b for b in (current_app.config.get("META_BUSINESS_IDS") or "").split(",") if b.strip()]:
+            for edge in ("owned_whatsapp_business_accounts", "client_whatsapp_business_accounts"):
+                st, js = _graph("GET", f"{biz.strip()}/{edge}?fields=id,name&limit=50")
+                for w in js.get("data", []) if st == 200 else []:
+                    st2, ph = _graph("GET", f"{w['id']}/phone_numbers?fields=id,display_phone_number,verified_name")
+                    nums = ph.get("data", []) if st2 == 200 else []
+                    found.append({"id": w["id"], "name": w.get("name"), "edge": edge.split("_")[0], "numbers": nums})
+                    if not waba_id and any(n.get("id") == pid for n in nums):
+                        waba_id = w["id"]
+    waba_id = waba_id or current_app.config.get("WHATSAPP_WABA_ID") or ""
     if checks["token"] and waba_id:
         st, apps = _graph("GET", f"{waba_id}/subscribed_apps")
-    return render_template("whatsapp_setup.html", checks=checks, phone=phone, token_info=token_info, apps=apps,
+    return render_template("whatsapp_setup.html", checks=checks, phone=phone, token_info=token_info, apps=apps, found=found,
                            waba_id=waba_id, webhook=url_for("comms.webhook", _external=True))

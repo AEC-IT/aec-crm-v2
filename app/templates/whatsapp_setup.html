@@ -19,6 +19,10 @@
  <p class="small muted">The token needs access to WhatsApp account {{ waba_id }}.</p>
  {% else %}<p class="muted">Needs a working token and phone ID.</p>{% endif %}</div>
 </div>
+<div class="card"><h2>WhatsApp accounts this token can see</h2>
+ {% if found %}<table><tr><th>Account</th><th>ID</th><th>Numbers</th></tr>{% for w in found %}<tr {% if w.id==waba_id %}style="background:#e7f6ef"{% endif %}><td>{{ w.name }} <span class="small muted">({{ w.edge }})</span></td><td>{{ w.id }}</td>
+ <td>{% for n in w.numbers %}{{ n.display_phone_number }} <span class="small muted">id {{ n.id }}</span>{% if n.id==checks.phone_id %} <span class="tag ok">your number</span>{% endif %}<br>{% else %}<span class="muted">none</span>{% endfor %}</td></tr>{% endfor %}</table>
+ {% else %}<p class="muted">The token can't list any WhatsApp accounts (it needs whatsapp_business_management and the account assigned to its system user).</p>{% endif %}</div>
 <div class="card"><h2>4. Apps receiving messages for this WhatsApp account</h2>
  <form class="filters"><label style="margin:0">WhatsApp account ID</label><input name="waba_id" value="{{ waba_id }}"><button class="btn sm ghost">Check</button></form>
  {% if apps and not apps.error %}<table><tr><th>App</th><th>App ID</th></tr>
