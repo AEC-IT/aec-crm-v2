@@ -1,0 +1,38 @@
+{% extends "base.html" %}{% block title %}WhatsApp Connection{% endblock %}
+{% macro ok(v) %}{% if v %}<span class="tag ok">✓ OK</span>{% else %}<span class="tag bad">✗ Missing</span>{% endif %}{% endmacro %}
+{% block content %}
+<h1>WhatsApp connection</h1><p class="sub">Checks that the CRM can send and receive on your WhatsApp number through Meta directly.</p>
+<div class="row">
+<div class="card"><h2>1. Settings in Render</h2><table>
+ <tr><td>WHATSAPP_TOKEN</td><td>{{ ok(checks.token) }}</td></tr>
+ <tr><td>WHATSAPP_PHONE_ID</td><td>{{ ok(checks.phone_id) }} <span class="small muted">{{ checks.phone_id or '' }}</span></td></tr>
+ <tr><td>WHATSAPP_VERIFY_TOKEN</td><td>{{ ok(checks.verify) }}</td></tr></table></div>
+<div class="card"><h2>2. Token</h2>
+ {% if token_info and not token_info.error %}<p><span class="tag ok">✓ Valid</span> belongs to <b>{{ token_info.name }}</b></p>
+ {% elif token_info %}<p><span class="tag bad">✗ Not working</span><br><span class="small">{{ token_info.error.message }}</span></p>
+ <p class="small muted">Expired? Create a permanent System User token (see below) and update it in Render.</p>
+ {% else %}<p class="muted">Add WHATSAPP_TOKEN in Render first.</p>{% endif %}</div>
+<div class="card"><h2>3. Phone number</h2>
+ {% if phone and not phone.error %}<dl class="kv"><dt>Number</dt><dd><b>{{ phone.display_phone_number }}</b></dd><dt>Name</dt><dd>{{ phone.verified_name }}</dd>
+  <dt>Quality</dt><dd>{{ phone.quality_rating }}</dd><dt>Platform</dt><dd>{{ phone.platform_type or '—' }}</dd></dl>
+ {% elif phone %}<p><span class="tag bad">✗ Can't read the number</span><br><span class="small">{{ phone.error.message }}</span></p>
+ <p class="small muted">The token needs access to WhatsApp account {{ waba_id }}.</p>
+ {% else %}<p class="muted">Needs a working token and phone ID.</p>{% endif %}</div>
+</div>
+<div class="card"><h2>4. Apps receiving messages for this WhatsApp account</h2>
+ <form class="filters"><label style="margin:0">WhatsApp account ID</label><input name="waba_id" value="{{ waba_id }}"><button class="btn sm ghost">Check</button></form>
+ {% if apps and not apps.error %}<table><tr><th>App</th><th>App ID</th></tr>
+  {% for a in apps.data %}<tr><td>{{ a.whatsapp_business_api_data.name if a.whatsapp_business_api_data else '' }}</td><td>{{ a.whatsapp_business_api_data.id if a.whatsapp_business_api_data else '' }}</td></tr>{% else %}<tr><td colspan="2" class="muted">No apps subscribed.</td></tr>{% endfor %}</table>
+  <p class="small muted">AiSensy keeps receiving messages as long as its app is listed here. Your CRM's Meta app must be listed too.</p>
+ {% elif apps %}<p class="small" style="color:var(--bad)">{{ apps.error.message }}</p>{% endif %}
+ <form method="post"><input type="hidden" name="action" value="subscribe"><input type="hidden" name="waba_id" value="{{ waba_id }}">
+  <button class="btn" {{ 'disabled' if not checks.token }}>Subscribe the CRM's app to this WhatsApp account</button></form>
+ <p class="small muted">Subscribes the app that owns the token. Then set the webhook in that app (step 5).</p></div>
+<div class="card"><h2>5. Webhook in Meta (do once)</h2>
+ <p>In <b>developers.facebook.com</b> → your app → WhatsApp → Configuration → Webhook → Edit:</p>
+ <p>Callback URL: <input readonly value="{{ webhook }}" size="55" onclick="this.select()"><br>Verify token: the same word as WHATSAPP_VERIFY_TOKEN in Render.<br>Then subscribe the <b>messages</b> field. The app must be <b>Live / published</b> for real messages to arrive.</p></div>
+<div class="card"><h2>6. Send a test</h2>
+ <form method="post" class="filters"><input type="hidden" name="action" value="test"><input name="to" placeholder="Your mobile number" required>
+ <button class="btn green" {{ 'disabled' if not checks.token }}>Send "hello_world" template</button></form>
+ <p class="small muted">Then reply from your phone — your reply should appear in WhatsApp Inbox within seconds.</p></div>
+{% endblock %}

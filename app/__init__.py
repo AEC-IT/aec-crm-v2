@@ -27,6 +27,7 @@ def create_app(config=None):
         SESSION_COOKIE_SAMESITE="Lax",
         WHATSAPP_TOKEN=os.environ.get("WHATSAPP_TOKEN"),
         WHATSAPP_PHONE_ID=os.environ.get("WHATSAPP_PHONE_ID"),
+        WHATSAPP_WABA_ID=os.environ.get("WHATSAPP_WABA_ID", "1511185571043122"),
         UPI_ID=os.environ.get("UPI_ID"),
         COMPANY_NAME=os.environ.get("COMPANY_NAME", "AEC Studies Pvt. Ltd."),
         COMPANY_GSTIN=os.environ.get("COMPANY_GSTIN", "32AAMCA4317K1ZQ"),

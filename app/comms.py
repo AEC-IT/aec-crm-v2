@@ -195,3 +195,56 @@ def lead_chat(lid):
     db.session.commit()
     return render_template("_chat_messages.html", msgs=msgs, lead=lead,
                            in_window=in_service_window(phone))
+
+
+# ------------------------------------------------------------------ connection check (admin)
+def _graph(method, path, data=None):
+    """Call the Meta Graph API with the token from the server settings. Returns (status, json)."""
+    token = current_app.config.get("WHATSAPP_TOKEN")
+    if not token:
+        return 0, {"error": {"message": "WHATSAPP_TOKEN is not set in Render"}}
+    body = json.dumps(data).encode() if data is not None else (b"" if method == "POST" else None)
+    req = urllib.request.Request(f"https://graph.facebook.com/v20.0/{path}", data=body, method=method,
+                                 headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"})
+    try:
+        with urllib.request.urlopen(req, timeout=15) as r:
+            return r.status, json.loads(r.read() or b"{}")
+    except urllib.error.HTTPError as e:
+        try:
+            return e.code, json.loads(e.read() or b"{}")
+        except ValueError:
+            return e.code, {"error": {"message": str(e)}}
+    except Exception as e:  # noqa
+        return 0, {"error": {"message": str(e)}}
+
+
+@bp.route("/admin/whatsapp", methods=["GET", "POST"])
+@requires("admin")
+def whatsapp_setup():
+    pid = current_app.config.get("WHATSAPP_PHONE_ID")
+    if request.method == "POST":
+        action = request.form.get("action")
+        if action == "subscribe":
+            waba = request.form.get("waba_id", "").strip()
+            st, js = _graph("POST", f"{waba}/subscribed_apps")
+            flash("CRM app is now subscribed — incoming messages will reach the CRM" if st == 200 and js.get("success")
+                  else "Meta said: " + js.get("error", {}).get("message", str(js)), "ok" if st == 200 else "error")
+        elif action == "test":
+            to = normalize_phone(request.form.get("to"))
+            st, js = _graph("POST", f"{pid}/messages", {"messaging_product": "whatsapp", "to": (to or "").lstrip("+"),
+                            "type": "template", "template": {"name": "hello_world", "language": {"code": "en_US"}}})
+            flash(f"Test message sent to {to} ✓" if st == 200 else "Meta said: " + js.get("error", {}).get("message", str(js)),
+                  "ok" if st == 200 else "error")
+        return redirect(url_for("comms.whatsapp_setup"))
+    checks = {"token": bool(current_app.config.get("WHATSAPP_TOKEN")), "phone_id": pid,
+              "verify": bool(current_app.config.get("WHATSAPP_VERIFY_TOKEN"))}
+    phone = token_info = apps = None
+    if checks["token"]:
+        st, token_info = _graph("GET", "me?fields=id,name")
+        if pid:
+            st, phone = _graph("GET", f"{pid}?fields=display_phone_number,verified_name,quality_rating,code_verification_status,platform_type,throughput,name_status")
+    waba_id = request.args.get("waba_id") or current_app.config.get("WHATSAPP_WABA_ID") or ""
+    if checks["token"] and waba_id:
+        st, apps = _graph("GET", f"{waba_id}/subscribed_apps")
+    return render_template("whatsapp_setup.html", checks=checks, phone=phone, token_info=token_info, apps=apps,
+                           waba_id=waba_id, webhook=url_for("comms.webhook", _external=True))
