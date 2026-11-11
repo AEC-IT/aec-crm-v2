@@ -158,3 +158,8 @@ def reset_2fa(uid):
     db.session.commit()
     flash(f"2-step login reset for {u.name} (lost phone)", "ok")
     return redirect(url_for("auth.user_form", uid=uid))
+
+
+@bp.app_route("/privacy")
+def privacy():
+    return render_template("privacy.html")
