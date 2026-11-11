@@ -387,3 +387,9 @@ def import_data():
         if request.form.get("api"):
             return out
     return render_template("import.html", out=out)
+
+
+@bp.route("/privacy")
+def privacy():
+    """Public privacy policy (needed by Meta to publish the WhatsApp app)."""
+    return render_template("privacy.html")
