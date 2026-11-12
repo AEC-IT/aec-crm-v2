@@ -260,3 +260,38 @@ def whatsapp_setup():
         st, apps = _graph("GET", f"{waba_id}/subscribed_apps")
     return render_template("whatsapp_setup.html", checks=checks, phone=phone, token_info=token_info, apps=apps, found=found,
                            waba_id=waba_id, webhook=url_for("comms.webhook", _external=True))
+
+
+def send_document(to, link, filename, caption=""):
+    """Send a PDF / image by public link as a WhatsApp document (images go as images)."""
+    is_img = filename.lower().rsplit(".", 1)[-1] in ("jpg", "jpeg", "png", "webp")
+    media = {"link": link, "caption": caption[:1000]}
+    if not is_img:
+        media["filename"] = filename
+    return _post({"to": to.lstrip("+"), "type": "image" if is_img else "document", ("image" if is_img else "document"): media})
+
+
+@bp.route("/leads/<int:lid>/brochure/<int:bid>/send", methods=["POST"])
+@requires("leads")
+def send_brochure(lid, bid):
+    from .leads import get_lead
+    from .models import Brochure
+    lead = get_lead(lid)
+    b = db.session.get(Brochure, bid) or abort(404)
+    link = url_for("modules.brochure_public", bid=b.id, l=lead.id, _external=True)
+    first = lead.name.split()[0] if lead.name else ""
+    caption = (request.form.get("caption") or
+               f"Hi {first}, here is the {b.title} brochure from AEC Studies. Feel free to ask any questions.")
+    phone = normalize_phone(lead.whatsapp or lead.phone)
+    ext = b.filename.rsplit(".", 1)[-1] if "." in b.filename else "pdf"
+    ok, info = send_document(phone, link, f"{b.title}.{ext}", caption)
+    db.session.add(WhatsAppMessage(lead_id=lead.id, phone=phone, direction="out", read=True,
+                                   body=f"📎 {b.title}\n{caption}"))
+    log(lead, f"Brochure sent on WhatsApp: {b.title}" + ("" if ok else f"\n⚠ {info}"), "whatsapp", current_user)
+    lead.last_contacted_at = now_ist()
+    db.session.commit()
+    if request.form.get("ajax"):
+        return {"ok": ok, "info": info, "link": link}
+    flash(f"Brochure '{b.title}' sent on WhatsApp ✓" if ok else info + " — use 'Copy link' to send it yourself.",
+          "ok" if ok else "error")
+    return redirect(url_for("leads.detail", lid=lid) + "#brochures")

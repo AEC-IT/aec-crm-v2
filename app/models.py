@@ -333,9 +333,27 @@ class Payment(db.Model, TimeStamped):
 class Brochure(db.Model, TimeStamped):
     id = db.Column(db.Integer, primary_key=True)
     course = db.Column(db.String(60))
+    country = db.Column(db.String(60))          # blank = any country
+    university_id = db.Column(db.Integer, db.ForeignKey("university.id"))
     title = db.Column(db.String(160))
     filename = db.Column(db.String(255))
     views = db.Column(db.Integer, default=0)
+    university = db.relationship("University")
+
+    def match_score(self, lead):
+        """How well this brochure fits a lead: course and country both count; a wrong one excludes it."""
+        s = 0
+        if self.course and lead.course:
+            if self.course.lower() != lead.course.lower():
+                return -1
+            s += 2
+        if self.country and lead.country_preference:
+            if self.country.lower() != lead.country_preference.lower():
+                return -1
+            s += 2
+        if self.university_id and any(a.university_id == self.university_id for a in lead.applications):
+            s += 3
+        return s
 
 
 class WhatsAppMessage(db.Model):

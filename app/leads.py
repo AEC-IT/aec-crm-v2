@@ -219,11 +219,21 @@ def check_duplicate():
 @requires("leads")
 def detail(lid):
     lead = get_lead(lid)
+    scored = sorted(((b.match_score(lead), b) for b in Brochure.query.all()), key=lambda x: (-x[0], x[1].title or ""))
+    recommended = [b for sc, b in scored if sc > 0]
+    other_brochures = [b for sc, b in scored if sc <= 0]
+    charges = lead.charges.all()
+    billed = sum(c.amount for c in charges)
+    collected = sum(c.paid for c in charges)
+    final_app = next((a for a in lead.applications if a.status == "Final"), None)
     return render_template("lead_detail.html", lead=lead, stages=STAGES, phases=PHASES,
                            universities=University.query.filter_by(active=True).order_by(University.country, University.name).all(),
-                           brochures=Brochure.query.all(), dups=find_duplicates(lead.phone, lead.email, lead.id),
+                           brochures=recommended + other_brochures, recommended=recommended, other_brochures=other_brochures,
+                           billed=billed, collected=collected, unpaid=sum(1 for c in charges if c.status != "paid"),
+                           final_app=final_app, notes=lead.activities.filter_by(kind="note").all(),
+                           dups=find_duplicates(lead.phone, lead.email, lead.id),
                            users=User.query.filter_by(active=True).all(),
-                           activities=lead.activities.limit(100).all(),
+                           activities=lead.activities.limit(100).all(), lost_reasons=LOST_REASONS,
                            wa_templates=WhatsAppTemplate.query.filter_by(active=True).order_by(WhatsAppTemplate.category).all())
 
 
@@ -302,10 +312,14 @@ def add_application(lid):
             db.session.delete(app_)
         else:
             app_.status = f.get("status", app_.status)
+            if app_.status == "Final":
+                for other in lead.applications:
+                    if other.id != app_.id and other.status == "Final":
+                        other.status = "Accepted"
             log(lead, f"Application {app_.university.name}: {app_.status}", "system", current_user)
     elif f.get("university_id"):
         app_ = Application(lead_id=lid, university_id=int(f["university_id"]), course=f.get("course") or lead.course,
-                           intake=f.get("intake") or lead.intended_intake)
+                           intake=f.get("intake") or lead.intended_intake, status=f.get("status") or "Shortlisted")
         db.session.add(app_)
         db.session.flush()
         log(lead, f"University shortlisted: {app_.university.name}", "system", current_user)
@@ -385,3 +399,41 @@ def portal(token):
     docs = {d.name: d for d in lead.documents}
     return render_template("portal.html", lead=lead, phases=PHASES, checklist=DOC_CHECKLIST, docs=docs,
                            stage_codes=[c for c, _ in STAGES])
+
+
+LOST_REASONS = ["Not interested", "Joined another consultancy", "Studying in India", "Budget too low", "Not eligible",
+                "Wrong number / fake enquiry", "No response after many attempts", "Postponed to next year", "Other"]
+
+
+@bp.route("/leads/<int:lid>/close", methods=["POST"])
+@requires("leads")
+def close(lid):
+    """Close a lead with a reason (moves it to Closed & Lost; can be reopened)."""
+    lead = get_lead(lid)
+    reason = request.form.get("reason") or "Other"
+    note = (request.form.get("note") or "").strip()
+    lead.status, lead.lost_reason = "lost", reason
+    lead.next_followup_at = None
+    log(lead, f"Lead closed: {reason}" + (f" — {note}" if note else ""), "stage", current_user)
+    db.session.commit()
+    flash(f"{lead.name} moved to Closed & Lost ({reason})", "ok")
+    return redirect(url_for("leads.detail", lid=lid))
+
+
+@bp.route("/leads/<int:lid>/notify", methods=["POST"])
+@requires("leads")
+def notify_user(lid):
+    """Send an in-CRM notification about this lead to a colleague."""
+    from .services import notify
+    lead = get_lead(lid)
+    uid = request.form.get("user_id", type=int)
+    msg = (request.form.get("message") or "").strip()
+    target = db.session.get(User, uid) if uid else None
+    if not target:
+        flash("Choose who to notify", "error")
+        return redirect(url_for("leads.detail", lid=lid))
+    notify(uid, f"{current_user.name} about {lead.name}: {msg or 'please check this lead'}", f"/leads/{lid}")
+    log(lead, f"Notified {target.name}: {msg}", "note", current_user)
+    db.session.commit()
+    flash(f"{target.name} has been notified", "ok")
+    return redirect(url_for("leads.detail", lid=lid))

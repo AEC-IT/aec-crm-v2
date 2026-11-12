@@ -1,10 +1,16 @@
 {% extends "base.html" %}{% block title %}Brochures{% endblock %}
 {% block content %}
-<h1>Course brochures</h1><p class="sub">Store a brochure per course. Share trackable links from a lead's page — you'll be notified when they open it.</p>
-<form method="post" enctype="multipart/form-data" class="card filters"><select name="course" required><option value="">Course…</option>{% for c in courses %}<option>{{ c }}</option>{% endfor %}</select>
-<input name="title" placeholder="Title" required><input type="file" name="file" required accept=".pdf,.docx,.jpg,.jpeg,.png"><button class="btn">Upload</button></form>
-<div class="tbl"><table><tr><th>Course</th><th>Title</th><th>Views</th><th>Added</th><th></th></tr>
-{% for b in brochures %}<tr><td>{{ b.course }}</td><td><a href="{{ url_for('modules.file', fn=b.filename) }}" target="_blank">{{ b.title }}</a></td><td>{{ b.views }}</td><td>{{ b.created_at|dt }}</td>
+<h1>Course brochures</h1><p class="sub">Upload a brochure (PDF or image) for a course and country. On each lead, the brochures matching that student's course and country are suggested first and can be sent on WhatsApp in one click.</p>
+<form method="post" enctype="multipart/form-data" class="card"><div class="grid">
+ <div><label>Course</label><select name="course"><option value="">Any course</option>{% for c in courses %}<option>{{ c }}</option>{% endfor %}</select></div>
+ <div><label>Country</label><select name="country"><option value="">Any country</option>{% for c in countries %}<option>{{ c }}</option>{% endfor %}</select></div>
+ <div><label>University (optional)</label><select name="university_id"><option value="">—</option>{% for u in universities %}<option value="{{ u.id }}">{{ u.name }} ({{ u.country }})</option>{% endfor %}</select></div>
+ <div><label>Title *</label><input name="title" required placeholder="e.g. MBBS in Georgia – Fees 2027"></div>
+ <div><label>File * (PDF, JPG, PNG · max 15 MB)</label><input type="file" name="file" required accept=".pdf,.jpg,.jpeg,.png"></div>
+</div><p><button class="btn">Upload brochure</button></p></form>
+<div class="tbl"><table><tr><th>Course</th><th>Country</th><th>University</th><th>Title</th><th class="right">Opened</th><th>Added</th><th></th></tr>
+{% for b in brochures %}<tr><td>{{ b.course or 'Any' }}</td><td>{{ b.country or 'Any' }}</td><td class="small">{{ b.university.name if b.university else '—' }}</td>
+<td><a href="{{ url_for('modules.file', fn=b.filename) }}" target="_blank">{{ b.title }}</a></td><td class="right">{{ b.views }}</td><td>{{ b.created_at|dt }}</td>
 <td><form method="post" onsubmit="return confirm('Delete brochure?')"><button class="btn sm ghost" name="delete" value="{{ b.id }}">✕</button></form></td></tr>
-{% else %}<tr><td colspan="5" class="muted">No brochures yet.</td></tr>{% endfor %}</table></div>
+{% else %}<tr><td colspan="7" class="muted">No brochures yet.</td></tr>{% endfor %}</table></div>
 {% endblock %}

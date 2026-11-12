@@ -213,3 +213,61 @@ def test_receipts():
         from datetime import date
         assert next_receipt_no(date(2027, 3, 31)).startswith("AEC/2026-27/") and next_receipt_no(date(2027, 4, 1)) == "AEC/2027-28/00001"
     print("RECEIPTS OK")
+
+
+def test_lead_page_v2():
+    import io
+    app = make()
+    app.config.update(SERVER_NAME="crm.test")
+    cl = app.test_client()
+    login(cl)
+    cl.post("/leads/new", data={"name": "Ayisha Nesrin", "phone": "7012032235", "course": "MBBS", "country_preference": "Georgia",
+                                "tenth_percent": "90", "location": "Alappuzha"})
+    with app.app_context():
+        lid = Lead.query.first().id
+    # brochures: one matching, one other country, one any-country MBBS
+    for title, course, country in [("MBBS Georgia 2027", "MBBS", "Georgia"), ("MBBS Russia", "MBBS", "Russia"), ("MBBS general", "MBBS", ""), ("BBA Spain", "BBA", "Spain")]:
+        r = cl.post("/brochures", data={"course": course, "country": country, "title": title,
+                                         "file": (io.BytesIO(b"%PDF-1.4 test"), "b.pdf")}, content_type="multipart/form-data")
+        assert r.status_code == 302
+    page = cl.get(f"/leads/{lid}").data.decode()
+    rec = page[page.index('id="brochures"'):page.index('id="timeline"')]
+    assert rec.index("MBBS Georgia 2027") < rec.index("Other brochures")
+    assert "MBBS general" in rec[:rec.index("Other brochures")] and "MBBS Russia" in rec[rec.index("Other brochures"):]
+    for s in ["Lead information", "Student profile", "Readiness", "Alappuzha", "Service charges", "Notes", "Assign lead",
+              "Change stage", "Log a call", "Schedule follow-up", "Close lead", "Notify a user"]:
+        assert s in page, s
+    # send brochure (no API) -> saved in chat with link
+    r = cl.post(f"/leads/{lid}/brochure/1/send", data={"ajax": "1"})
+    assert r.json["ok"] is False and "/b/1?l=" in r.json["link"]
+    with app.app_context():
+        from app.models import WhatsAppMessage
+        assert "MBBS Georgia 2027" in WhatsAppMessage.query.first().body
+    assert app.test_client().get("/b/1").status_code == 200  # public brochure link
+    # final university is unique
+    with app.app_context():
+        db.session.add(University(name="David Tvildiani Medical University", country="Georgia")); db.session.commit()
+    cl.post(f"/leads/{lid}/application", data={"university_id": "1", "intake": "Sep 2027"})
+    cl.post(f"/leads/{lid}/application", data={"university_id": "2"})
+    cl.post(f"/leads/{lid}/application", data={"app_id": "1", "status": "Final"})
+    cl.post(f"/leads/{lid}/application", data={"app_id": "2", "status": "Final"})
+    with app.app_context():
+        from app.models import Application
+        assert [a.status for a in Application.query.order_by(Application.id)] == ["Accepted", "Final"]
+    assert "Final: David Tvildiani" in cl.get(f"/leads/{lid}").data.decode()
+    # note, call, follow-up, notify, close
+    cl.post(f"/leads/{lid}/activity", data={"kind": "note", "text": "Parent wants Georgia only"})
+    cl.post(f"/leads/{lid}/activity", data={"kind": "call", "outcome": "Connected", "next_followup_at": "2026-11-20T10:00"})
+    cl.post(f"/leads/{lid}/activity", data={"next_followup_at": "2026-11-21T11:00", "next_followup_note": "Send fee details"})
+    r = cl.post(f"/leads/{lid}/notify", data={"user_id": "2", "message": "call parent"}, follow_redirects=True)
+    assert b"has been notified" in r.data
+    with app.app_context():
+        from app.models import Notification
+        assert Notification.query.filter_by(user_id=2).filter(Notification.text.like("%call parent%")).count() == 1
+        l = db.session.get(Lead, lid); assert l.next_followup_note == "Send fee details" and l.stage == "university_shortlisted"
+    assert "Parent wants Georgia only" in cl.get(f"/leads/{lid}").data.decode()
+    cl.post(f"/leads/{lid}/close", data={"reason": "Joined another consultancy", "note": "XYZ Edu"})
+    with app.app_context():
+        l = db.session.get(Lead, lid); assert l.status == "lost" and l.lost_reason == "Joined another consultancy"
+    assert cl.get(f"/leads/{lid}").status_code == 200 and cl.get("/brochures").status_code == 200
+    print("LEAD PAGE V2 OK")

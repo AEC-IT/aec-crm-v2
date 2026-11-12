@@ -303,10 +303,14 @@ def brochures():
                 return redirect(url_for("modules.brochures"))
             fn = secure_filename(f"brochure_{now_ist():%Y%m%d%H%M%S}_{up.filename}")
             save_upload(up, fn)
-            db.session.add(Brochure(course=request.form["course"], title=request.form["title"], filename=fn))
+            db.session.add(Brochure(course=request.form.get("course") or None, title=request.form["title"], filename=fn,
+                                    country=request.form.get("country") or None,
+                                    university_id=request.form.get("university_id", type=int) or None))
         db.session.commit()
         return redirect(url_for("modules.brochures"))
-    return render_template("brochures.html", brochures=Brochure.query.order_by(Brochure.course).all(), courses=COURSES)
+    return render_template("brochures.html", brochures=Brochure.query.order_by(Brochure.course, Brochure.country).all(),
+                           courses=COURSES, countries=COUNTRIES,
+                           universities=University.query.filter_by(active=True).order_by(University.country, University.name).all())
 
 
 @bp.route("/b/<int:bid>")
