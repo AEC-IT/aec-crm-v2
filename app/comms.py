@@ -314,6 +314,11 @@ def to_meta_template(t):
     body = t.body
     for i, k in enumerate(order, 1):
         body = body.replace("{" + k + "}", "{{" + str(i) + "}}")
+    # Meta rule: a template may not start or end with a variable
+    if body.rstrip().endswith("}}"):
+        body = body.rstrip() + " — AEC Studies"
+    if body.lstrip().startswith("{{"):
+        body = "Hello " + body.lstrip()
     name = re.sub(r"[^a-z0-9]+", "_", (t.title or f"tpl_{t.id}").lower()).strip("_")[:60] or f"tpl_{t.id}"
     comp = {"type": "BODY", "text": body}
     if order:
