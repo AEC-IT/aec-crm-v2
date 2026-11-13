@@ -9,6 +9,7 @@ from .models import now_ist
 from .models import (db, Lead, User, Branch, University, Application, Activity, Brochure, Appointment,
                      Payment, Charge, WhatsAppTemplate, DOC_CHECKLIST, Document, PHASES, STAGES, STAGE_LABEL, COURSES, COUNTRIES,
                      SOURCES, CONVERTED_STAGES)
+from .models import now_ist
 from .services import (save_upload, serve_upload, normalize_phone, find_duplicates, log, auto_assign, merge_leads, change_stage,
                        run_rules, new_token)
 
@@ -226,11 +227,14 @@ def detail(lid):
     billed = sum(c.amount for c in charges)
     collected = sum(c.paid for c in charges)
     final_app = next((a for a in lead.applications if a.status == "Final"), None)
+    from .services import fill_template
+    stage_msgs = {t.stage: fill_template(t.body, lead, extra={"stage": STAGE_LABEL.get(t.stage, t.stage)})[0]
+                  for t in WhatsAppTemplate.query.filter(WhatsAppTemplate.stage.isnot(None), WhatsAppTemplate.active.is_(True)).all()}
     return render_template("lead_detail.html", lead=lead, stages=STAGES, phases=PHASES,
                            universities=University.query.filter_by(active=True).order_by(University.country, University.name).all(),
                            brochures=recommended + other_brochures, recommended=recommended, other_brochures=other_brochures,
                            billed=billed, collected=collected, unpaid=sum(1 for c in charges if c.status != "paid"),
-                           final_app=final_app, notes=lead.activities.filter_by(kind="note").all(),
+                           final_app=final_app, stage_msgs=stage_msgs, notes=lead.activities.filter_by(kind="note").all(),
                            dups=find_duplicates(lead.phone, lead.email, lead.id),
                            users=User.query.filter_by(active=True).all(),
                            activities=lead.activities.limit(100).all(), lost_reasons=LOST_REASONS,
@@ -252,6 +256,31 @@ def set_stage(lid):
     db.session.commit()
     if request.is_json:
         return jsonify(ok=True)
+    body = (request.form.get("wa_body") or "").strip()
+    if request.form.get("send_whatsapp") and body:
+        from .comms import send_whatsapp, in_service_window, _post
+        from .models import WhatsAppMessage
+        import re
+        phone = normalize_phone(lead.whatsapp or lead.phone)
+        tpl = WhatsAppTemplate.query.filter_by(stage=st, active=True).first()
+        if tpl and tpl.meta_name and not in_service_window(phone):
+            # outside 24 h: Meta only accepts the approved template, variables in body order
+            from .services import fill_template
+            _, vals = fill_template(tpl.body, lead)
+            params = [{"type": "text", "text": vals.get(k, "") or "-"} for k in re.findall(r"{(\w+)}", tpl.body)]
+            ok, info = _post({"to": phone.lstrip("+"), "type": "template", "template": {"name": tpl.meta_name,
+                              "language": {"code": tpl.language or "en"}, "components": [{"type": "body", "parameters": params}] if params else []}})
+        else:
+            ok, info = send_whatsapp(phone, body)
+        db.session.add(WhatsAppMessage(lead_id=lead.id, phone=phone, direction="out", body=body, read=True))
+        log(lead, body + ("" if ok else f"\n⚠ {info}"), "whatsapp", current_user)
+        lead.last_contacted_at = now_ist()
+        db.session.commit()
+        flash(f"Stage updated to {lead.stage_label} and WhatsApp sent ✓" if ok else
+              f"Stage updated to {lead.stage_label}. WhatsApp not sent: {info} Use 'Open in WhatsApp' to send it from your phone.",
+              "ok" if ok else "error")
+    else:
+        flash(f"Stage updated to {lead.stage_label}", "ok")
     return redirect(url_for("leads.detail", lid=lid))
 
 

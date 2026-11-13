@@ -514,6 +514,7 @@ class WhatsAppTemplate(db.Model, TimeStamped):
     meta_name = db.Column(db.String(120))
     language = db.Column(db.String(10), default="en")
     active = db.Column(db.Boolean, default=True)
+    stage = db.Column(db.String(40), index=True)  # set = suggested when a lead moves to this stage
 
 
 class StoredFile(db.Model):

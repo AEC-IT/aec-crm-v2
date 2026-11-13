@@ -271,3 +271,26 @@ def test_lead_page_v2():
         l = db.session.get(Lead, lid); assert l.status == "lost" and l.lost_reason == "Joined another consultancy"
     assert cl.get(f"/leads/{lid}").status_code == 200 and cl.get("/brochures").status_code == 200
     print("LEAD PAGE V2 OK")
+
+
+def test_stage_whatsapp():
+    app = make()
+    cl = app.test_client()
+    login(cl)
+    cl.post("/leads/new", data={"name": "Rashid Khan", "phone": "9147712737", "course": "MBBS", "country_preference": "Georgia"})
+    with app.app_context():
+        from app.models import WhatsAppTemplate, WhatsAppMessage
+        assert WhatsAppTemplate.query.filter(WhatsAppTemplate.stage.isnot(None)).count() == 19
+    page = cl.get("/leads/1").data.decode()
+    assert "Congratulations Rashid!" in page and "Update &amp; send on WhatsApp" in page and "wa.me" in page
+    r = cl.post("/leads/1/stage", data={"stage": "offer_letter_received", "wa_body": "Congratulations Rashid! 🎉 Offer received.",
+                                         "send_whatsapp": "1"}, follow_redirects=True)
+    assert b"Stage updated to Offer Letter Received" in r.data and b"not sent" in r.data
+    with app.app_context():
+        assert WhatsAppMessage.query.first().body.startswith("Congratulations Rashid") and db.session.get(Lead, 1).stage == "offer_letter_received"
+    r = cl.post("/leads/1/stage", data={"stage": "student_confirmed", "wa_body": "x"}, follow_redirects=True)
+    assert b"Stage updated to Student Confirmed" in r.data
+    with app.app_context():
+        assert WhatsAppMessage.query.count() == 1  # stage only: nothing sent
+    assert cl.get("/m/templates/").status_code == 200 and cl.get("/m/templates/new").status_code == 200
+    print("STAGE WA OK")

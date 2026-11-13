@@ -142,7 +142,7 @@ def upi_link(amount, note):
     return "upi://pay?" + q
 
 
-def fill_template(body, lead, charge=None):
+def fill_template(body, lead, charge=None, extra=None):
     """Replace {placeholders} with lead values; unknown ones are left blank."""
     from flask import url_for
     due = charge.amount - charge.paid if charge else lead.balance_due
@@ -156,6 +156,9 @@ def fill_template(body, lead, charge=None):
         "portal": url_for("leads.portal", token=lead.portal_token, _external=True) if lead.portal_token else "",
         "pay_link": url_for("finance.pay_page", token=lead.portal_token, _external=True) if lead.portal_token else "",
     }
+
+    if extra:
+        vals.update(extra)
 
     class Safe(dict):
         def __missing__(self, k):

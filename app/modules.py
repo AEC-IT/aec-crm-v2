@@ -11,7 +11,7 @@ from .auth import requires
 from .models import now_ist
 from .models import (db, University, Brochure, Visitor, Courier, Bill, InventoryItem, OfficeRecord, Appointment,
                      OfficeTask, Expense, Branch, AutomationRule, Integration, Notification, Lead, User, Document, WhatsAppTemplate,
-                     DOC_CHECKLIST, COURSES, COUNTRIES, PAY_MODES)
+                     DOC_CHECKLIST, COURSES, COUNTRIES, PAY_MODES, STAGES)
 from .services import save_upload, serve_upload, log, notify
 
 bp = Blueprint("modules", __name__)
@@ -100,11 +100,12 @@ CRUD = {
         order="spent_on"),
     "templates": dict(model=WhatsAppTemplate, perm="admin", title="WhatsApp Templates", fields=[
         ("title", "Title", "text", None),
-        ("category", "Category", "select", ["Welcome", "Follow-up", "Documents", "Payment", "Visa & Travel", "General"]),
+        ("category", "Category", "select", ["Welcome", "Follow-up", "Documents", "Payment", "Visa & Travel", "Stage update", "General"]),
+        ("stage", "Suggest when stage changes to", "select", [c for c, _ in STAGES]),
         ("body", "Message — use {name} {course} {country} {counsellor} {stage} {due} {fee_type} {due_date} {pay_link} {portal}", "textarea", None),
         ("meta_name", "Meta template name (needed outside the 24-hour window)", "text", None),
         ("language", "Language code (en, ml, hi…)", "text", None), ("active", "Active", "bool", None)],
-        cols=["title", "category", "meta_name", "active"], search=["title", "body"], filter="category"),
+        cols=["title", "category", "stage", "meta_name", "active"], search=["title", "body"], filter="category"),
     "branches": dict(model=Branch, perm="admin", title="Branches", fields=[
         ("name", "Name", "text", None), ("address", "Address", "text", None), ("phone", "Phone", "text", None),
         ("email", "Email", "text", None), ("active", "Active", "bool", None)],

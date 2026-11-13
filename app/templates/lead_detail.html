@@ -116,9 +116,14 @@
   <select name="assigned_to_id" style="width:100%"><option value="">— Unassigned —</option>{% for u in users %}<option value="{{ u.id }}" {{ 'selected' if lead.assigned_to_id==u.id }}>{{ u.name }} ({{ u.role_label }})</option>{% endfor %}</select>
   <div class="filters" style="margin:8px 0 0"><button class="btn sm ghost" style="flex:1">Save assignment</button><button class="btn sm ghost" name="auto" value="1">Auto</button></div></form></div>
 
- <div class="card"><h3>Change stage</h3><form method="post" action="{{ url_for('leads.set_stage', lid=lead.id) }}">
-  <select name="stage" style="width:100%">{% for phase, group in phases %}<optgroup label="{{ phase }}">{% for code,label in group %}<option value="{{ code }}" {{ 'selected' if code==lead.stage }}>{{ label }}</option>{% endfor %}</optgroup>{% endfor %}</select>
-  <button class="btn green" style="width:100%;margin-top:8px">Update stage</button></form>
+ <div class="card"><h3>Change stage</h3><form method="post" action="{{ url_for('leads.set_stage', lid=lead.id) }}" id="stageForm">
+  <select name="stage" id="stageSel" style="width:100%" onchange="stageMsg()">{% for phase, group in phases %}<optgroup label="{{ phase }}">{% for code,label in group %}<option value="{{ code }}" {{ 'selected' if code==lead.stage }}>{{ label }}</option>{% endfor %}</optgroup>{% endfor %}</select>
+  <label class="small" style="margin-top:8px">💬 WhatsApp message for this stage <span class="muted">(edit if needed)</span></label>
+  <textarea name="wa_body" id="stageBody" rows="5" style="font-size:13px"></textarea>
+  <button class="btn ghost" style="width:100%;margin-top:8px">Update stage only</button>
+  <button class="btn green" name="send_whatsapp" value="1" style="width:100%;margin-top:6px">Update &amp; send on WhatsApp</button>
+  <a id="stageWaMe" class="btn sm ghost" style="width:100%;margin-top:6px;text-align:center" target="_blank" rel="noopener" href="#">Open in WhatsApp (send from your phone)</a>
+  </form>
   {% if lead.status!='open' %}<form method="post" action="{{ url_for('leads.set_status', lid=lead.id, status='open') }}" style="margin-top:6px"><button class="btn sm ghost" style="width:100%">Re-open lead</button></form>{% endif %}</div>
 
  <div class="card" id="log"><h3>📞 Log a call</h3><form method="post" action="{{ url_for('leads.add_activity', lid=lead.id) }}"><input type="hidden" name="kind" value="call">
@@ -222,6 +227,11 @@ async function tplPreview(id){const b=document.getElementById('tplprev');if(!id)
 b.textContent=await (await fetch('/whatsapp/preview/{{ lead.id }}/'+id)).text();b.style.display='block';}
 function setFU(d,f){const t=new Date(Date.now()+d*864e5);t.setHours(10,0,0,0);
 const p=n=>String(n).padStart(2,'0');(f||document).querySelector('[name=next_followup_at]').value=`${t.getFullYear()}-${p(t.getMonth()+1)}-${p(t.getDate())}T10:00`;}
+
+const STAGE_MSGS={{ stage_msgs|tojson }}, WA_NUM={{ (lead.whatsapp or lead.phone or '')|replace('+','')|replace(' ','')|tojson }};
+function waMe(){document.getElementById('stageWaMe').href='https://wa.me/'+WA_NUM+'?text='+encodeURIComponent(document.getElementById('stageBody').value);}
+function stageMsg(){const b=document.getElementById('stageBody');b.value=STAGE_MSGS[document.getElementById('stageSel').value]||'';waMe();}
+document.getElementById('stageBody').addEventListener('input',waMe);stageMsg();
 async function sendBrochure(bid,btn){if(!bid)return;const m=document.getElementById('brochMsg');btn.disabled=true;const t=btn.textContent;btn.textContent='Sending…';
  const fd=new FormData();fd.append('ajax','1');const r=await (await fetch(`/leads/{{ lead.id }}/brochure/${bid}/send`,{method:'POST',body:fd})).json();
  btn.disabled=false;btn.textContent=r.ok?'Sent ✓':t;m.style.color=r.ok?'var(--ok)':'var(--bad)';
