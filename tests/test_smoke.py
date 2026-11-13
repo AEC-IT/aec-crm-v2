@@ -294,3 +294,22 @@ def test_stage_whatsapp():
         assert WhatsAppMessage.query.count() == 1  # stage only: nothing sent
     assert cl.get("/m/templates/").status_code == 200 and cl.get("/m/templates/new").status_code == 200
     print("STAGE WA OK")
+
+
+def test_meta_templates():
+    app = make()
+    cl = app.test_client()
+    login(cl)
+    with app.app_context():
+        from app.comms import to_meta_template
+        from app.models import WhatsAppTemplate
+        t = WhatsAppTemplate.query.filter_by(stage="offer_letter_received").first()
+        name, order, payload = to_meta_template(t)
+        assert name == "stage_offer_letter_received" and order == ["name", "counsellor"]
+        assert "{{1}}" in payload["components"][0]["text"] and payload["components"][0]["example"]["body_text"][0] == ["Ayisha", "Asha"]
+    assert cl.get("/admin/whatsapp/templates").status_code == 200
+    r = cl.post("/admin/whatsapp/templates/submit", follow_redirects=True)
+    assert b"failed" in r.data  # no token in tests -> clear error, nothing marked submitted
+    r = cl.post("/admin/whatsapp/templates", follow_redirects=True)
+    assert b"Meta said" in r.data
+    print("META TEMPLATES OK")

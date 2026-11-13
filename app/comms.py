@@ -40,7 +40,7 @@ def send_template_to_lead(tpl, lead, user=None, charge=None):
     import re
     text, vals = fill_template(tpl.body, lead, charge)
     phone = lead.whatsapp or lead.phone
-    if in_service_window(phone) or not tpl.meta_name:
+    if in_service_window(phone) or not tpl.meta_name or (tpl.meta_status and tpl.meta_status != "APPROVED"):
         ok, info = _post({"to": phone.lstrip("+"), "type": "text", "text": {"body": text}})
         if not ok and not in_service_window(phone) and "configured" not in info:
             info += " (outside 24 h — add the Meta template name to this template)"
@@ -295,3 +295,88 @@ def send_brochure(lid, bid):
     flash(f"Brochure '{b.title}' sent on WhatsApp ✓" if ok else info + " — use 'Copy link' to send it yourself.",
           "ok" if ok else "error")
     return redirect(url_for("leads.detail", lid=lid) + "#brochures")
+
+
+# ------------------------------------------------------------------ Meta template approval
+SAMPLE = {"name": "Ayisha", "full_name": "Ayisha Nesrin", "course": "MBBS", "country": "Georgia", "counsellor": "Asha",
+          "stage": "Offer Letter Received", "due": "₹25,000", "fee_type": "Application Fee", "due_date": "due by 20 Nov 2026",
+          "portal": "https://aec-crm-v2.onrender.com/portal/abc", "pay_link": "https://aec-crm-v2.onrender.com/finance/pay/abc"}
+
+
+def to_meta_template(t):
+    """CRM template -> Meta template payload. {name} placeholders become {{1}}, {{2}}… in order of appearance."""
+    import re
+    keys = re.findall(r"{(\w+)}", t.body or "")
+    order = []
+    for k in keys:
+        if k not in order:
+            order.append(k)
+    body = t.body
+    for i, k in enumerate(order, 1):
+        body = body.replace("{" + k + "}", "{{" + str(i) + "}}")
+    name = re.sub(r"[^a-z0-9]+", "_", (t.title or f"tpl_{t.id}").lower()).strip("_")[:60] or f"tpl_{t.id}"
+    comp = {"type": "BODY", "text": body}
+    if order:
+        comp["example"] = {"body_text": [[SAMPLE.get(k, "sample") for k in order]]}
+    return name, order, {"name": name, "language": t.language or "en", "category": "UTILITY", "components": [comp]}
+
+
+def _waba_id():
+    return current_app.config.get("WHATSAPP_WABA_ID") or "1511185571043122"
+
+
+@bp.route("/admin/whatsapp/templates/submit", methods=["POST"])
+@requires("admin")
+def meta_submit():
+    ids = request.form.getlist("ids", type=int)
+    q = WhatsAppTemplate.query.filter(WhatsAppTemplate.active.is_(True))
+    q = q.filter(WhatsAppTemplate.id.in_(ids)) if ids else q.filter(WhatsAppTemplate.meta_status.is_(None))
+    sent = errs = 0
+    last = ""
+    for t in q.all():
+        name, order, payload = to_meta_template(t)
+        st, js = _graph("POST", f"{_waba_id()}/message_templates", payload)
+        if st == 200:
+            t.meta_name = name
+            t.meta_status = js.get("status", "PENDING")
+            t.meta_reason = None
+            sent += 1
+        else:
+            msg = js.get("error", {}).get("error_user_msg") or js.get("error", {}).get("message", str(js))
+            if "already exists" in msg.lower():
+                t.meta_name = name
+                t.meta_status = t.meta_status or "SUBMITTED"
+                sent += 1
+            else:
+                t.meta_reason = msg[:250]
+                errs += 1
+                last = msg
+    db.session.commit()
+    flash(f"Submitted {sent} template(s) to Meta" + (f"; {errs} failed — {last}" if errs else ". Approval usually takes minutes to a day."),
+          "ok" if not errs else "error")
+    return redirect(url_for("comms.meta_templates"))
+
+
+@bp.route("/admin/whatsapp/templates", methods=["GET", "POST"])
+@requires("admin")
+def meta_templates():
+    """Template approval dashboard; POST = refresh statuses from Meta."""
+    if request.method == "POST":
+        st, js = _graph("GET", f"{_waba_id()}/message_templates?fields=name,status,rejected_reason&limit=200")
+        if st == 200:
+            by = {d["name"]: d for d in js.get("data", [])}
+            n = 0
+            for t in WhatsAppTemplate.query.filter(WhatsAppTemplate.meta_name.isnot(None)).all():
+                d = by.get(t.meta_name)
+                if d:
+                    t.meta_status = d.get("status")
+                    t.meta_reason = d.get("rejected_reason") if d.get("rejected_reason") not in (None, "NONE") else None
+                    n += 1
+            db.session.commit()
+            flash(f"Updated status of {n} template(s) from Meta", "ok")
+        else:
+            flash("Meta said: " + js.get("error", {}).get("message", str(js)), "error")
+        return redirect(url_for("comms.meta_templates"))
+    rows = WhatsAppTemplate.query.order_by(WhatsAppTemplate.category, WhatsAppTemplate.id).all()
+    return render_template("meta_templates.html", rows=rows, preview={t.id: to_meta_template(t) for t in rows},
+                           waba=_waba_id())

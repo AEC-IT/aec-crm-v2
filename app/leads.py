@@ -263,7 +263,7 @@ def set_stage(lid):
         import re
         phone = normalize_phone(lead.whatsapp or lead.phone)
         tpl = WhatsAppTemplate.query.filter_by(stage=st, active=True).first()
-        if tpl and tpl.meta_name and not in_service_window(phone):
+        if tpl and tpl.meta_name and tpl.meta_status == "APPROVED" and not in_service_window(phone):
             # outside 24 h: Meta only accepts the approved template, variables in body order
             from .services import fill_template
             _, vals = fill_template(tpl.body, lead)

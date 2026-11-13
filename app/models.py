@@ -515,6 +515,8 @@ class WhatsAppTemplate(db.Model, TimeStamped):
     language = db.Column(db.String(10), default="en")
     active = db.Column(db.Boolean, default=True)
     stage = db.Column(db.String(40), index=True)  # set = suggested when a lead moves to this stage
+    meta_status = db.Column(db.String(30))     # PENDING / APPROVED / REJECTED (from Meta)
+    meta_reason = db.Column(db.String(255))
 
 
 class StoredFile(db.Model):

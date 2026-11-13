@@ -1,0 +1,18 @@
+{% extends "base.html" %}{% block title %}Template approval{% endblock %}
+{% block content %}
+<div class="head"><div><h1>WhatsApp template approval</h1><p class="sub" style="margin:0">Messages to students who haven't written in the last 24 hours must use a template approved by Meta. Submit them here once; the CRM then uses them automatically.</p></div>
+<div class="filters" style="margin:0"><form method="post"><button class="btn ghost">↻ Refresh status from Meta</button></form>
+<form method="post" action="{{ url_for('comms.meta_submit') }}" onsubmit="return confirm('Submit all templates not yet submitted to Meta for approval?')"><button class="btn green">Submit all new templates</button></form></div></div>
+<form method="post" action="{{ url_for('comms.meta_submit') }}">
+<div class="tbl"><table><tr><th><input type="checkbox" onclick="document.querySelectorAll('.ck').forEach(c=>c.checked=this.checked)"></th><th>Template</th><th>Stage</th><th>Meta name</th><th>Status</th><th>As sent to Meta</th></tr>
+{% for t in rows %}{% set name, order, payload = preview[t.id] %}<tr>
+<td><input type="checkbox" class="ck" name="ids" value="{{ t.id }}"></td>
+<td><a href="{{ url_for('modules.crud_form', name='templates', oid=t.id) }}"><b>{{ t.title }}</b></a><div class="small muted">{{ t.category }}</div></td>
+<td class="small">{{ STAGE_LABEL.get(t.stage, '') if t.stage else '—' }}</td>
+<td class="small"><code>{{ t.meta_name or name }}</code></td>
+<td>{% if t.meta_status %}<span class="tag {{ 'ok' if t.meta_status=='APPROVED' else ('bad' if t.meta_status=='REJECTED' else 'pending') }}">{{ t.meta_status|lower }}</span>{% else %}<span class="tag">not submitted</span>{% endif %}
+ {% if t.meta_reason %}<div class="small" style="color:var(--bad)">{{ t.meta_reason }}</div>{% endif %}</td>
+<td class="small" style="max-width:380px;white-space:pre-wrap">{{ payload.components[0].text }}{% if order %}<div class="muted">{% for k in order %}{{ '{{' ~ loop.index ~ '}}' }} = {{ k }}{{ ', ' if not loop.last }}{% endfor %}</div>{% endif %}</td></tr>
+{% endfor %}</table></div>
+<p><button class="btn ghost">Submit selected again</button> <span class="small muted">Use this to resubmit after editing a rejected template. WhatsApp account: {{ waba }}</span></p></form>
+{% endblock %}
