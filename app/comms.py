@@ -1,5 +1,6 @@
 """WhatsApp inbox via Meta Cloud API (webhook in, send out)."""
 import json
+import urllib.error
 import urllib.request
 from datetime import datetime
 from flask import Blueprint, render_template, request, redirect, url_for, flash, abort, current_app
@@ -23,8 +24,34 @@ def _post(payload):
     try:
         urllib.request.urlopen(req, timeout=15)
         return True, "sent"
+    except urllib.error.HTTPError as e:
+        return False, meta_error_text(e)
     except Exception as e:  # noqa
         return False, f"WhatsApp error: {e}"
+
+
+META_ERRORS = {
+    131047: "This student hasn't messaged you in the last 24 hours, so WhatsApp only allows an approved template. "
+            "Your template is still waiting for Meta's approval (Admin → Template Approval).",
+    131026: "WhatsApp couldn't deliver to this number — it may not be on WhatsApp.",
+    132001: "This template isn't approved by Meta yet (Admin → Template Approval).",
+    132000: "The template's details don't match what Meta approved.",
+    131030: "This number isn't allowed yet — the Meta app may still be in test mode.",
+    190: "The WhatsApp token has expired or was revoked — generate a new one and update it in Render.",
+    131056: "Too many messages to this number in a short time — wait a minute and try again.",
+    100: "Meta rejected the request — check the phone number format.",
+}
+
+
+def meta_error_text(e):
+    """Turn a Graph API HTTP error into a clear sentence."""
+    try:
+        err = json.loads(e.read() or b"{}").get("error", {})
+    except Exception:  # noqa
+        return f"WhatsApp error: {e}"
+    code = err.get("code")
+    sub = (err.get("error_data") or {}).get("details") or err.get("error_user_msg") or err.get("message", "")
+    return "WhatsApp: " + META_ERRORS.get(code, f"{sub} (code {code})")
 
 
 def in_service_window(phone):
@@ -77,20 +104,10 @@ def preview(lid, tid):
 
 
 def send_whatsapp(to, body):
-    """Send a text message. Returns (ok, info). Without credentials, it only logs."""
-    token, pid = current_app.config.get("WHATSAPP_TOKEN"), current_app.config.get("WHATSAPP_PHONE_ID")
-    if not (token and pid):
-        return False, "WhatsApp API not configured — message saved only."
-    req = urllib.request.Request(
-        f"https://graph.facebook.com/v20.0/{pid}/messages",
-        data=json.dumps({"messaging_product": "whatsapp", "to": to.lstrip("+"), "type": "text",
-                         "text": {"body": body}}).encode(),
-        headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"})
-    try:
-        urllib.request.urlopen(req, timeout=15)
-        return True, "sent"
-    except Exception as e:  # noqa
-        return False, str(e)
+    """Send a free-text message (works only within 24 h of the student's last message)."""
+    if not to:
+        return False, "No phone number on this lead."
+    return _post({"to": to.lstrip("+"), "type": "text", "text": {"body": body}})
 
 
 @bp.route("/whatsapp/")
