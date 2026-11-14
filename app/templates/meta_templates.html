@@ -3,6 +3,14 @@
 <div class="head"><div><h1>WhatsApp template approval</h1><p class="sub" style="margin:0">Messages to students who haven't written in the last 24 hours must use a template approved by Meta. Submit them here once; the CRM then uses them automatically.</p></div>
 <div class="filters" style="margin:0"><form method="post"><button class="btn ghost">↻ Refresh status from Meta</button></form>
 <form method="post" action="{{ url_for('comms.meta_submit') }}"><button class="btn green">Submit all new templates</button></form></div></div>
+<p><a class="btn ghost" href="?show_meta=1">Show templates already approved at Meta</a></p>
+{% if at_meta %}<div class="card"><h2>Templates at Meta ({{ at_meta|length }})</h2>
+<p class="small muted">These already exist on your WhatsApp account. Link one to a CRM message to use it straight away — the variables {{ '{{1}}' }}, {{ '{{2}}' }}… are filled in the order the CRM message uses them.</p>
+<div class="tbl"><table><tr><th>Meta name</th><th>Status</th><th>Lang</th><th>Text</th><th>Use for CRM message</th></tr>
+{% for m in at_meta %}<tr><td><code>{{ m.name }}</code><div class="small muted">{{ m.category or '' }}</div></td><td><span class="tag {{ 'ok' if m.status=='APPROVED' else 'pending' }}">{{ (m.status or '')|lower }}</span></td><td>{{ m.language or '' }}</td>
+<td class="small" style="max-width:420px;white-space:pre-wrap">{{ m.body }}</td>
+<td>{% if m.status=='APPROVED' %}<form method="post" action="{{ url_for('comms.meta_link') }}" class="filters" style="margin:0"><input type="hidden" name="meta_name" value="{{ m.name }}"><input type="hidden" name="language" value="{{ m.language }}">
+<select name="tid" required><option value="">Choose…</option>{% for t in rows %}<option value="{{ t.id }}">{{ t.title }}</option>{% endfor %}</select><button class="btn sm">Link</button></form>{% endif %}</td></tr>{% endfor %}</table></div></div>{% endif %}
 <form method="post" action="{{ url_for('comms.meta_submit') }}">
 <div class="tbl"><table><tr><th><input type="checkbox" onclick="document.querySelectorAll('.ck').forEach(c=>c.checked=this.checked)"></th><th>Template</th><th>Stage</th><th>Meta name</th><th>Status</th><th>As sent to Meta</th></tr>
 {% for t in rows %}{% set name, order, payload = preview[t.id] %}<tr>

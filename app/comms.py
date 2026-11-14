@@ -416,5 +416,25 @@ def meta_templates():
             flash("Meta said: " + js.get("error", {}).get("message", str(js)), "error")
         return redirect(url_for("comms.meta_templates"))
     rows = WhatsAppTemplate.query.order_by(WhatsAppTemplate.category, WhatsAppTemplate.id).all()
+    at_meta = []
+    if request.args.get("show_meta"):
+        st, js = _graph("GET", f"{_waba_id()}/message_templates?fields=name,status,language,category,components&limit=100")
+        at_meta = js.get("data", []) if st == 200 else [{"name": "error", "status": js.get("error", {}).get("message", "")}]
+        for d in at_meta:
+            d["body"] = next((c.get("text", "") for c in d.get("components", []) if c.get("type") == "BODY"), "")
     return render_template("meta_templates.html", rows=rows, preview={t.id: to_meta_template(t) for t in rows},
-                           waba=_waba_id())
+                           waba=_waba_id(), at_meta=at_meta)
+
+
+@bp.route("/admin/whatsapp/templates/link", methods=["POST"])
+@requires("admin")
+def meta_link():
+    """Point a CRM template at an existing approved Meta template."""
+    t = db.session.get(WhatsAppTemplate, request.form.get("tid", type=int)) or abort(404)
+    t.meta_name = request.form.get("meta_name") or None
+    t.language = request.form.get("language") or t.language
+    t.meta_status = "APPROVED" if t.meta_name else None
+    t.meta_reason = None
+    db.session.commit()
+    flash(f"'{t.title}' now uses Meta template {t.meta_name}" if t.meta_name else f"'{t.title}' unlinked", "ok")
+    return redirect(url_for("comms.meta_templates", show_meta=1))
