@@ -384,9 +384,19 @@ def meta_submit():
 def meta_templates():
     """Template approval dashboard; POST = refresh statuses from Meta."""
     if request.method == "POST":
-        st, js = _graph("GET", f"{_waba_id()}/message_templates?fields=name,status,rejected_reason&limit=200")
+        st, js = _graph("GET", f"{_waba_id()}/message_templates?fields=name,status,rejected_reason,language&limit=100")
+        data = list(js.get("data", [])) if st == 200 else []
+        nxt = (js.get("paging") or {}).get("next") if st == 200 else None
+        while nxt and len(data) < 1000:  # follow Meta's pages
+            try:
+                with urllib.request.urlopen(nxt, timeout=15) as r:
+                    page = json.loads(r.read())
+                data += page.get("data", [])
+                nxt = (page.get("paging") or {}).get("next")
+            except Exception:  # noqa
+                break
         if st == 200:
-            by = {d["name"]: d for d in js.get("data", [])}
+            by = {d["name"]: d for d in data}
             n = 0
             for t in WhatsAppTemplate.query.filter(WhatsAppTemplate.meta_name.isnot(None)).all():
                 d = by.get(t.meta_name)
@@ -395,7 +405,13 @@ def meta_templates():
                     t.meta_reason = d.get("rejected_reason") if d.get("rejected_reason") not in (None, "NONE") else None
                     n += 1
             db.session.commit()
-            flash(f"Updated status of {n} template(s) from Meta", "ok")
+            counts = {}
+            for d in data:
+                counts[d.get("status")] = counts.get(d.get("status"), 0) + 1
+            ours = {t.meta_name for t in WhatsAppTemplate.query.filter(WhatsAppTemplate.meta_name.isnot(None))}
+            missing = sorted(ours - set(by))[:5]
+            flash(f"Meta has {len(data)} template(s) on this account ({', '.join(f'{k}: {v}' for k, v in counts.items()) or 'none'}). "
+                  f"Matched {n} of ours." + (f" Not found at Meta: {', '.join(missing)}" if missing else ""), "ok")
         else:
             flash("Meta said: " + js.get("error", {}).get("message", str(js)), "error")
         return redirect(url_for("comms.meta_templates"))
